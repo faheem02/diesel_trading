@@ -61,7 +61,7 @@ include '../../../includes/header.php';
     </div>
     <div class="card-body">
         <form method="GET">
-            <div class="row">
+            <div class="row w-100">
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="small font-weight-bold">From Date</label>
@@ -74,7 +74,7 @@ include '../../../includes/header.php';
                         <input type="date" name="to_date" class="form-control" value="<?= htmlspecialchars($to_date) ?>">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">Tank</label>
                         <select name="tank_id" class="form-control">
@@ -87,7 +87,7 @@ include '../../../includes/header.php';
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">Movement Type</label>
                         <select name="movement_type" class="form-control">
@@ -98,13 +98,12 @@ include '../../../includes/header.php';
                         </select>
                     </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col">
+                <div class="col-md-2">
                     <div class="form-group">
-                        <div class="d-flex">
-                            <button type="submit" class="btn btn-sm btn-primary shadow-sm mr-1"><i class="fas fa-search fa-sm mr-1"></i> Filter</button>
-                            <a href="stock_ledger.php" class="btn btn-sm btn-secondary shadow-sm"><i class="fas fa-redo fa-sm mr-1"></i> Reset</a>
+                        <label class="small font-weight-bold">&nbsp;</label>
+                        <div class="btn-group btn-group-sm shadow-sm" role="group">
+                            <button type="submit" class="btn btn-sm btn-primary shadow-sm mr-2"><i class="fas fa-search fa-sm mr-1"></i> Filter</button>
+                            <a href="tank_wise_stock.php" class="btn btn-sm btn-secondary shadow-sm"><i class="fas fa-redo fa-sm mr-1"></i> Reset</a>
                         </div>
                     </div>
                 </div>
@@ -122,15 +121,15 @@ include '../../../includes/header.php';
             <table class="table table-bordered table-hover" id="ledgerTable" width="100%" cellspacing="0">
                 <thead class="thead-dark">
                     <tr>
-                        <th>#</th>
-                        <th>Date</th>
-                        <th>Tank</th>
-                        <th>Type</th>
-                        <th class="text-right">In (Tons)</th>
-                        <th class="text-right">Out (Tons)</th>
-                        <th class="text-right text-warning">Rate (Rs.)</th>
-                        <th class="text-right text-info">Amount (Rs.)</th>
-                        <th>Description</th>
+                        <th width="3%">#</th>
+                        <th width="10%">Date</th>
+                        <th width="12%">Tank</th>
+                        <th width="8%">Type</th>
+                        <th width="10%">In (Tons)</th>
+                        <th width="10%">Out (Tons)</th>
+                        <th width="12%">Balance Before</th>
+                        <th width="12%">Balance After</th>
+                        <th width="23%">Description</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -139,20 +138,24 @@ include '../../../includes/header.php';
                     <?php else:
                         $i = 1;
                         while ($row = $result->fetch_assoc()):
-                            $qty_in = $row['movement_type'] === 'IN' ? $row['quantity'] : 0;
+                            $qty_in  = $row['movement_type'] === 'IN' ? $row['quantity'] : 0;
                             $qty_out = $row['movement_type'] !== 'IN' ? $row['quantity'] : 0;
                             $type_badge = $row['movement_type'] === 'IN' ? 'success' : ($row['movement_type'] === 'OUT' ? 'danger' : 'warning');
-                        ?>
+                            $description = htmlspecialchars($row['description'] ?: '-');
+                    ?>
                         <tr>
                             <td><?= $i++ ?></td>
                             <td><?= htmlspecialchars($row['transaction_date']) ?></td>
                             <td class="font-weight-bold"><?= htmlspecialchars($row['tank_name']) ?></td>
                             <td><span class="badge badge-<?= $type_badge ?>"><?= $row['movement_type'] ?></span></td>
-                            <td class="text-right text-success"><?= $qty_in > 0 ? number_format($qty_in, 3) : '-' ?></td>
-                            <td class="text-right text-danger"><?= $qty_out > 0 ? number_format($qty_out, 3) : '-' ?></td>
-                            <td class="text-right text-warning font-weight-bold"><?= number_format($row['rate'] ?? 0, 2) ?></td>
-                            <td class="text-right text-info font-weight-bold"><?= number_format($row['amount'] ?? 0, 2) ?></td>
-                            <td class="small text-muted italic"><?= htmlspecialchars($row['description'] ?: '-') ?></td>
+                            <td class="text-success font-weight-bold"><?= $qty_in  > 0 ? number_format($qty_in,  3) : '-' ?></td>
+                            <td class="text-danger font-weight-bold"><?= $qty_out > 0 ? number_format($qty_out, 3) : '-' ?></td>
+                            <td><?= number_format($row['balance_before'], 3) ?></td>
+                            <td class="font-weight-bold"><?= number_format($row['balance_after'], 3) ?></td>
+                            <td style="max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                                title="<?= $description ?>" data-toggle="tooltip">
+                                <?= $description ?>
+                            </td>
                         </tr>
                     <?php endwhile; endif; ?>
                 </tbody>
@@ -160,6 +163,13 @@ include '../../../includes/header.php';
         </div>
     </div>
 </div>
+
+<!-- Enable Bootstrap tooltips -->
+<script>
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+</script>
 
 <script>
 $(document).ready(function() {

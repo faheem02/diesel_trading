@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS tankers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tanker_number VARCHAR(100) NOT NULL UNIQUE,
+    owner_name VARCHAR(255) NOT NULL,
+    driver_name VARCHAR(255) NOT NULL,
+    mobile VARCHAR(20),
+    capacity DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    route_info TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

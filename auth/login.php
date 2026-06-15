@@ -45,6 +45,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="../assets/sb-admin2/vendor/fontawesome-free/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
     <link href="../assets/sb-admin2/css/sb-admin-2.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #2C3E50;
+            --navy-dark: #1A252F;
+            --amber: #F39C12;
+            --amber-dark: #D68910;
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 100%) !important;
+        }
+        .btn-primary {
+            background-color: var(--amber) !important;
+            border-color: var(--amber) !important;
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: var(--amber-dark) !important;
+            border-color: var(--amber-dark) !important;
+        }
+        .text-primary {
+            color: var(--amber) !important;
+        }
+        a {
+            color: var(--amber-dark);
+        }
+        a:hover {
+            color: #B87A0E;
+        }
+    </style>
 </head>
 <body class="bg-gradient-primary">
     <div class="container">

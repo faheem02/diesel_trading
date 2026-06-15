@@ -36,6 +36,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("isddds", $purchase_id, $return_date, $qty_returned, $rate_per_ton, $return_amount, $reason);
 
         if ($stmt->execute()) {
+            $conn->query("UPDATE purchases SET diesel_quantity = GREATEST(diesel_quantity - $qty_returned, 0), total_amount = GREATEST(total_amount - $return_amount, 0), net_purchase_cost = GREATEST(net_purchase_cost - $return_amount, 0) WHERE id = $purchase_id");
+
+            $sup = $conn->query("SELECT supplier_id, invoice_no FROM purchases WHERE id = $purchase_id")->fetch_assoc();
+            if ($sup) {
+                $sid = (int)$sup['supplier_id'];
+                $inv = $conn->real_escape_string($sup['invoice_no']);
+                $date = $conn->real_escape_string($return_date);
+                $amt = floatval($return_amount);
+                $desc = "Purchase Return - Invoice #$inv";
+                $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type) VALUES ($sid, '$date', '$desc', 0, $amt, 0, 'return')");
+                $eid = $conn->insert_id;
+                $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $sid")->fetch_assoc()['bal'];
+                $conn->query("UPDATE supplier_ledger SET balance = $bal WHERE id = $eid");
+                $conn->query("UPDATE suppliers SET balance = $bal WHERE id = $sid");
+            }
             $success = "Purchase return recorded successfully!";
             $purchase = null;
             $_POST = [];
@@ -55,9 +70,14 @@ include '../../includes/header.php';
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-undo-alt mr-1"></i> Purchase Return</h1>
-    <a href="list.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
-        <i class="fas fa-arrow-left"></i> Back to List
-    </a>
+<div>
+        <a href="returns_list.php" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm mr-1">
+            <i class="fas fa-list"></i> Return List
+        </a>
+        <a href="list.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+            <i class="fas fa-arrow-left"></i> Back to Purchases
+        </a>
+    </div>
 </div>
 
 <?php if ($success): ?>

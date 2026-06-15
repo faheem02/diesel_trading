@@ -1,0 +1,5 @@
+ALTER TABLE sales ADD COLUMN customer_id INT DEFAULT NULL AFTER customer_name;
+
+ALTER TABLE sales ADD FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+
+ALTER TABLE sales MODIFY COLUMN payment_type VARCHAR(50) DEFAULT 'Cash';

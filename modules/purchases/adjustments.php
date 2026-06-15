@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $old_value       = floatval($_POST['old_value'] ?? 0);
     $new_value       = floatval($_POST['new_value'] ?? 0);
     $reason          = trim($_POST['reason'] ?? '');
-    $adjusted_by     = trim($_POST['adjusted_by'] ?? $_SESSION['full_name']);
+    $adjusted_by     = trim($_POST['adjusted_by'] ?? ($_SESSION['full_name'] ?? $_SESSION['email'] ?? 'User'));
 
     if (empty($adjustment_date) || empty($adjustment_type)) {
         $error = "Please fill all required fields.";
@@ -38,6 +38,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                           $old_value, $new_value, $reason, $adjusted_by);
 
         if ($stmt->execute()) {
+            $sup = $conn->query("SELECT supplier_id, invoice_no FROM purchases WHERE id = $purchase_id")->fetch_assoc();
+            if ($sup) {
+                $sid = (int)$sup['supplier_id'];
+                $inv = $conn->real_escape_string($sup['invoice_no']);
+                $date = $conn->real_escape_string($adjustment_date);
+                $diff = $new_value - $old_value;
+                $debit = 0;
+                $credit = 0;
+                if ($diff > 0) {
+                    $debit = floatval($diff);
+                } else {
+                    $credit = floatval(abs($diff));
+                }
+                $desc = "Adjustment - Invoice #$inv";
+                $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type) VALUES ($sid, '$date', '$desc', $debit, $credit, 0, 'adjustment')");
+                $eid = $conn->insert_id;
+                $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $sid")->fetch_assoc()['bal'];
+                $conn->query("UPDATE supplier_ledger SET balance = $bal WHERE id = $eid");
+                $conn->query("UPDATE suppliers SET balance = $bal WHERE id = $sid");
+            }
             $success = "Purchase adjustment recorded successfully!";
             $purchase = null;
             $_POST = [];
@@ -155,7 +175,7 @@ include '../../includes/header.php';
                             <div class="form-group">
                                 <label class="small font-weight-bold">Adjusted By</label>
                                 <input type="text" name="adjusted_by" class="form-control"
-                                       value="<?= htmlspecialchars($_SESSION['full_name']) ?>">
+                                       value="<?= htmlspecialchars($_SESSION['full_name'] ?? $_SESSION['email'] ?? 'User') ?>">
                             </div>
                         </div>
                     </div>

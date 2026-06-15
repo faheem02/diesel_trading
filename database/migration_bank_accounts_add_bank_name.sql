@@ -1,0 +1,2 @@
+ALTER TABLE bank_accounts
+    ADD COLUMN IF NOT EXISTS bank_name VARCHAR(200) DEFAULT NULL AFTER account_name;

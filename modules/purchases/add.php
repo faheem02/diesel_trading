@@ -13,12 +13,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $supplier_id      = intval($_POST['supplier_id']);
     $payment_status   = $_POST['payment_status'];
     $paid_amount      = floatval($_POST['paid_amount']);
+    $bank_account_id  = intval($_POST['bank_account_id'] ?? 0);
+    $payment_method   = trim($_POST['payment_method'] ?? 'Cash');
 
     if (empty($invoice_no) || empty($purchase_date) || $supplier_id <= 0) {
         $error = "Please fill all required fields with valid values.";
     } elseif (!isset($_POST['tankers']) || count($_POST['tankers']) < 1) {
         $error = "Please add at least one tanker entry.";
     } else {
+        // If Cash is selected, ensure we use the cash account ID
+        if ($payment_method === 'Cash' && $bank_account_id <= 0) {
+            $cash_acc = $conn->query("SELECT id FROM bank_accounts WHERE account_type = 'Cash' LIMIT 1")->fetch_assoc();
+            if ($cash_acc) $bank_account_id = $cash_acc['id'];
+        }
+        
         $tankers = $_POST['tankers'];
         $total_qty = 0;
         $total_waste = 0;
@@ -49,40 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $weighted_rate = $total_qty > 0 ? $total_amount / $total_qty : 0;
 
-        $attachment_path = NULL;
-        if (isset($_FILES['invoice_attachment']) && $_FILES['invoice_attachment']['error'] === 0) {
-            $allowed = ['pdf', 'jpg', 'jpeg', 'png'];
-            $ext = strtolower(pathinfo($_FILES['invoice_attachment']['name'], PATHINFO_EXTENSION));
-
-            if (in_array($ext, $allowed)) {
-                $upload_dir = '../../uploads/purchase_invoices/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
-                $new_filename = uniqid('inv_') . '.' . $ext;
-                $target_path = $upload_dir . $new_filename;
-
-                if (move_uploaded_file($_FILES['invoice_attachment']['tmp_name'], $target_path)) {
-                    $attachment_path = 'uploads/purchase_invoices/' . $new_filename;
-                } else {
-                    $error = "Failed to upload attachment.";
-                }
-            } else {
-                $error = "Invalid file type. Only PDF, JPG, PNG allowed.";
-            }
-        }
-
         if (empty($error)) {
             $conn->begin_transaction();
             try {
                 $stmt = $conn->prepare("INSERT INTO purchases 
                     (invoice_no, purchase_date, supplier_id, diesel_quantity, waste_kg, net_quantity, rate_per_ton,
                      total_amount, freight_charges, other_charges, net_purchase_cost,
-                     payment_status, paid_amount, invoice_attachment) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                     payment_status, paid_amount) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
                 $stmt->bind_param(
-                    "ssidddddddddss",
+                    "ssiddddddddds",
                     $invoice_no,
                     $purchase_date,
                     $supplier_id,
@@ -95,8 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $total_other,
                     $total_net,
                     $payment_status,
-                    $paid_amount,
-                    $attachment_path
+                    $paid_amount
                 );
 
                 $stmt->execute();
@@ -104,12 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
 
                 $tanker_stmt = $conn->prepare("INSERT INTO purchase_tankers 
-                    (purchase_id, tanker_number, driver_name, driver_mobile,
+                    (purchase_id, tank_id, tanker_number, driver_name, driver_mobile,
                      diesel_quantity, waste_kg, net_quantity, rate_per_ton, total_amount,
                      freight_charges, other_charges, net_amount)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
                 foreach ($tankers as $t) {
+                    $tank_id     = intval($t['tank_id'] ?? 0);
                     $tanker_no   = trim($t['tanker_number'] ?? '');
                     $driver_name = trim($t['driver_name'] ?? '');
                     $driver_mob  = trim($t['driver_mobile'] ?? '');
@@ -122,16 +107,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $waste       = ($qty / 35) * 50;
                     $net_qty     = $qty - ($waste / 1000);
 
-                    $tanker_stmt->bind_param("isssdddddddd",
-                        $purchase_id, $tanker_no, $driver_name, $driver_mob,
+                    $tank_id_val = ($tank_id > 0) ? $tank_id : null;
+                    $tanker_stmt->bind_param("iisssdddddddd",
+                        $purchase_id, $tank_id_val, $tanker_no, $driver_name, $driver_mob,
                         $qty, $waste, $net_qty, $rate, $t_total, $freight, $other, $t_net
                     );
                     $tanker_stmt->execute();
+
+                    // Update Stock if Tank is selected
+                    if ($tank_id > 0) {
+                        $tank = $conn->query("SELECT current_stock FROM tanks WHERE id = $tank_id")->fetch_assoc();
+                        if ($tank) {
+                            $bal_before = $tank['current_stock'];
+                            $bal_after  = $bal_before + $qty;
+                            
+                            $conn->query("UPDATE tanks SET current_stock = $bal_after WHERE id = $tank_id");
+                            
+                            $stock_desc = "Purchase Invoice #$invoice_no (Tanker: $tanker_no)";
+                            $stmt_sl = $conn->prepare("INSERT INTO stock_ledger (tank_id, transaction_date, movement_type, reference_type, reference_id, quantity, rate, amount, balance_before, balance_after, description) VALUES (?, ?, 'IN', 'purchase', ?, ?, ?, ?, ?, ?, ?)");
+                            $stmt_sl->bind_param("isidddddds", $tank_id, $purchase_date, $purchase_id, $qty, $rate, $t_total, $bal_before, $bal_after, $stock_desc);
+                            $stmt_sl->execute();
+                            $stmt_sl->close();
+                        }
+                    }
                 }
                 $tanker_stmt->close();
 
+                $ledger_desc = "Purchase Invoice #$invoice_no" . ($payment_status === 'Paid' ? " (Paid Rs. " . number_format($paid_amount, 0) . ")" : "");
+                $ledger_debit = $total_net;
+                if ($payment_status === 'Paid' || $payment_status === 'Partial Paid') {
+                    $paid = min($paid_amount, $total_net);
+                    $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type) VALUES ($supplier_id, '$purchase_date', '$ledger_desc', $ledger_debit, 0, 0, 'purchase')");
+                    $entry_id = $conn->insert_id;
+                    $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
+                    $conn->query("UPDATE supplier_ledger SET balance = $bal WHERE id = $entry_id");
+
+                    if ($paid > 0) {
+                        $pay_desc = "Payment against Invoice #$invoice_no";
+                        $bank_id_for_ledger = ($bank_account_id > 0) ? $bank_account_id : null;
+                        $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type, bank_account_id, payment_method) VALUES ($supplier_id, '$purchase_date', '$pay_desc', 0, $paid, 0, 'payment', " . ($bank_id_for_ledger ?: 'NULL') . ", '$payment_method')");
+                        $entry_id2 = $conn->insert_id;
+                        $bal2 = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
+                        $conn->query("UPDATE supplier_ledger SET balance = $bal2 WHERE id = $entry_id2");
+                        if ($bank_id_for_ledger) {
+                            $conn->query("UPDATE bank_accounts SET current_balance = current_balance - $paid WHERE id = $bank_account_id");
+                        }
+                    }
+                    $final_bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
+                    $conn->query("UPDATE suppliers SET balance = $final_bal WHERE id = $supplier_id");
+                } else {
+                    $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type) VALUES ($supplier_id, '$purchase_date', '$ledger_desc', $ledger_debit, 0, 0, 'purchase')");
+                    $entry_id = $conn->insert_id;
+                    $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
+                    $conn->query("UPDATE supplier_ledger SET balance = $bal WHERE id = $entry_id");
+                    $conn->query("UPDATE suppliers SET balance = $bal WHERE id = $supplier_id");
+                }
+
                 $conn->commit();
-                $success = "Purchase entry saved successfully with " . count($tankers) . " tanker(s)!";
+                $success = "Purchase entry saved and stock updated successfully with " . count($tankers) . " tanker(s)!";
                 $_POST = [];
             } catch (Exception $e) {
                 $conn->rollback();
@@ -146,6 +179,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $suppliers = $conn->query("SELECT id, company_name FROM suppliers ORDER BY company_name");
+$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
+$tanks_res = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name");
+$tanks_list = [];
+while($t = $tanks_res->fetch_assoc()) $tanks_list[] = $t;
+
 include '../../includes/header.php';
 ?>
 
@@ -172,7 +210,7 @@ include '../../includes/header.php';
     </div>
 <?php endif; ?>
 
-<form method="POST" enctype="multipart/form-data" id="purchaseForm">
+    <form method="POST" id="purchaseForm">
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-file-invoice mr-1"></i> Invoice Information</h6>
@@ -226,6 +264,32 @@ include '../../includes/header.php';
                                value="<?= htmlspecialchars($_POST['paid_amount'] ?? '0') ?>">
                     </div>
                 </div>
+                <div class="col-md-4" id="payment_account_group">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Payment Method</label>
+                        <select name="payment_method" id="payment_method" class="form-control">
+                            <option value="Cash" <?= (!isset($_POST['payment_method']) || $_POST['payment_method']==='Cash') ? 'selected':'' ?>>Cash</option>
+                            <option value="Bank" <?= (isset($_POST['payment_method']) && $_POST['payment_method']==='Bank') ? 'selected':'' ?>>Bank</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4" id="bank_account_group">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Select Bank Account <span class="text-danger">*</span></label>
+                        <select name="bank_account_id" id="bank_account_id" class="form-control">
+                            <option value="">-- Select Bank --</option>
+                            <?php if ($bank_accounts && $bank_accounts->num_rows > 0):
+                                $bank_accounts->data_seek(0);
+                                while ($b = $bank_accounts->fetch_assoc()): 
+                                    if($b['account_type'] !== 'Bank') continue; ?>
+                                <option value="<?= $b['id'] ?>"
+                                    <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($b['bank_name'] . " - " . $b['account_name']) ?> (Bal: <?= number_format($b['current_balance'], 2) ?>)
+                                </option>
+                            <?php endwhile; endif; ?>
+                        </select>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -242,6 +306,7 @@ include '../../includes/header.php';
                 <table class="table table-bordered mb-0" id="tankersTable">
                     <thead class="thead-light">
                         <tr>
+                            <th style="min-width:140px">Tank <span class="text-danger">*</span></th>
                             <th style="min-width:120px">Tanker No</th>
                             <th style="min-width:120px">Driver Name</th>
                             <th style="min-width:110px">Driver Mobile</th>
@@ -258,6 +323,14 @@ include '../../includes/header.php';
                     </thead>
                     <tbody id="tankersBody">
                         <tr class="tanker-row">
+                            <td>
+                                <select name="tankers[0][tank_id]" class="form-control form-control-sm" required>
+                                    <option value="">-- Tank --</option>
+                                    <?php foreach($tanks_list as $t): ?>
+                                        <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
                             <td>
                                 <input type="text" name="tankers[0][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No">
                             </td>
@@ -300,7 +373,7 @@ include '../../includes/header.php';
                     </tbody>
                     <tfoot class="table-active">
                         <tr>
-                            <th colspan="3" class="text-right">Totals:</th>
+                            <th colspan="4" class="text-right">Totals:</th>
                             <th><span id="totalQty">0.000</span></th>
                             <th><span id="totalWaste">0.000</span></th>
                             <th><span id="totalNetQty">0.000</span></th>
@@ -317,21 +390,9 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-paperclip mr-1"></i> Invoice Attachment</h6>
-        </div>
-        <div class="card-body">
-            <div class="form-group">
-                <input type="file" name="invoice_attachment" class="form-control-file" accept=".pdf,.jpg,.jpeg,.png">
-                <small class="text-muted">Allowed: PDF, JPG, PNG</small>
-            </div>
-        </div>
-    </div>
-
     <div class="d-flex justify-content-between mb-4">
         <button type="submit" class="btn btn-primary">
-            <i class="fas fa-save"></i> Save Purchase Entry
+            <i class="fas fa-save"></i> Save Purchase & Update Stock
         </button>
         <a href="list.php" class="btn btn-secondary">
             <i class="fas fa-times"></i> Cancel
@@ -341,6 +402,7 @@ include '../../includes/header.php';
 
 <script>
 let tankerIndex = 1;
+const tanksOptions = `<?php foreach($tanks_list as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option><?php endforeach; ?>`;
 
 function calculateRow(row) {
     const qty = parseFloat(row.querySelector('.tanker-qty').value) || 0;
@@ -386,6 +448,12 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
     row.className = 'tanker-row';
     const i = tankerIndex++;
     row.innerHTML = `
+        <td>
+            <select name="tankers[${i}][tank_id]" class="form-control form-control-sm" required>
+                <option value="">-- Tank --</option>
+                ${tanksOptions}
+            </select>
+        </td>
         <td>
             <input type="text" name="tankers[${i}][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No">
         </td>
@@ -444,15 +512,36 @@ document.querySelectorAll('#tankersBody .tanker-row').forEach(row => {
 
 const paymentStatus = document.getElementById('payment_status');
 const paidAmount = document.getElementById('paid_amount');
+const pmSelect = document.getElementById('payment_method');
+const acctSelect = document.getElementById('bank_account_id');
+const bankAcctGroup = document.getElementById('bank_account_group');
+const paymentAcctGroup = document.getElementById('payment_account_group');
+
+function filterAccounts() {
+    if (pmSelect.value === 'Bank') {
+        bankAcctGroup.style.display = '';
+        acctSelect.required = true;
+    } else {
+        bankAcctGroup.style.display = 'none';
+        acctSelect.required = false;
+        acctSelect.value = '';
+    }
+}
+
 function togglePaidAmount() {
     if (paymentStatus.value === 'Credit') {
         paidAmount.value = 0;
         paidAmount.readOnly = true;
+        paymentAcctGroup.style.display = 'none';
+        bankAcctGroup.style.display = 'none';
     } else {
         paidAmount.readOnly = false;
+        paymentAcctGroup.style.display = '';
+        filterAccounts();
     }
 }
 paymentStatus.addEventListener('change', togglePaidAmount);
+pmSelect.addEventListener('change', filterAccounts);
 togglePaidAmount();
 </script>
 

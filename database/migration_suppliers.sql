@@ -1,0 +1,4 @@
+ALTER TABLE suppliers
+ADD COLUMN contact_person VARCHAR(100) DEFAULT NULL AFTER company_name,
+ADD COLUMN ntn_cnic VARCHAR(50) DEFAULT NULL AFTER phone,
+ADD COLUMN opening_balance DECIMAL(12,2) DEFAULT 0.00 AFTER balance;

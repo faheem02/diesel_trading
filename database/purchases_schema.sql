@@ -11,9 +11,12 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS suppliers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_name VARCHAR(150) NOT NULL,
+    contact_person VARCHAR(100) DEFAULT NULL,
     phone VARCHAR(20),
     address TEXT,
-    balance DECIMAL(12,2) DEFAULT 0,
+    ntn_cnic VARCHAR(50) DEFAULT NULL,
+    balance DECIMAL(12,2) DEFAULT 0.00,
+    opening_balance DECIMAL(12,2) DEFAULT 0.00,
     created_at DATE DEFAULT (CURRENT_DATE),
     updated_at DATE DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -72,6 +75,7 @@ CREATE TABLE IF NOT EXISTS purchase_adjustments (
 CREATE TABLE IF NOT EXISTS purchase_tankers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     purchase_id INT NOT NULL,
+    tank_id INT DEFAULT NULL,
     tanker_number VARCHAR(50),
     driver_name VARCHAR(100),
     driver_mobile VARCHAR(20),
@@ -84,7 +88,8 @@ CREATE TABLE IF NOT EXISTS purchase_tankers (
     other_charges DECIMAL(12,2) DEFAULT 0,
     net_amount DECIMAL(12,2) NOT NULL,
     created_at DATE DEFAULT (CURRENT_DATE),
-    FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE
+    FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
+    FOREIGN KEY (tank_id) REFERENCES tanks(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO suppliers (company_name, phone, address) VALUES

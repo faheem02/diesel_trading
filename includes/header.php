@@ -1,21 +1,15 @@
 <?php
+// Compute project base URL (absolute from document root)
+$doc_root = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
+$project_root = str_replace('\\', '/', dirname(__DIR__));
+$project_path = str_replace($doc_root, '', $project_root);
+$base_path = ($project_path === '' || $project_path === '/') ? './' : rtrim($project_path, '/') . '/';
+$asset_path = $base_path . 'assets/sb-admin2/';
+
 if (!isset($_SESSION['user_id'])) {
-    $script_name = $_SERVER['SCRIPT_NAME'];
-    if (strpos($script_name, '/auth/') === false) {
-        $depth = substr_count(trim(dirname($script_name), '/'), '/');
-        $prefix = str_repeat('../', $depth);
-        header("Location: " . $prefix . "auth/login.php");
-    } else {
-        header("Location: login.php");
-    }
+    header("Location: " . $base_path . "auth/login.php");
     exit;
 }
-
-// Calculate base path for assets relative to current file
-$script_dir = dirname($_SERVER['SCRIPT_NAME']);
-$depth = substr_count(trim($script_dir, '/'), '/');
-$base_path = $depth > 0 ? str_repeat('../', $depth) : './';
-$asset_path = $base_path . 'assets/sb-admin2/';
 
 $purchases_active = in_array($active_page ?? '', ['purchase_add', 'purchase_list', 'purchase_return', 'purchase_return_list', 'purchase_adjustment']);
 $suppliers_active = in_array($active_page ?? '', ['supplier_add', 'supplier_list', 'supplier_ledger', 'supplier_payment', 'supplier_outstanding', 'supplier_statement', 'supplier_payment_history']);

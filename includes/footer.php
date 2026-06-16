@@ -1,7 +1,8 @@
 <?php
-$script_dir = dirname($_SERVER['SCRIPT_NAME']);
-$depth = substr_count(trim($script_dir, '/'), '/');
-$base_path = $depth > 0 ? str_repeat('../', $depth) : './';
+$doc_root = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
+$project_root = str_replace('\\', '/', dirname(__DIR__));
+$project_path = str_replace($doc_root, '', $project_root);
+$base_path = ($project_path === '' || $project_path === '/') ? './' : rtrim($project_path, '/') . '/';
 $asset_path = $base_path . 'assets/sb-admin2/';
 ?>
                 </div>

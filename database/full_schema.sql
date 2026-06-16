@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'admin',
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     ntn_cnic VARCHAR(50) DEFAULT NULL,
     balance DECIMAL(12,2) DEFAULT 0.00,
     opening_balance DECIMAL(12,2) DEFAULT 0.00,
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS purchases (
     payment_status ENUM('Paid','Partial Paid','Credit') DEFAULT 'Credit',
     paid_amount DECIMAL(12,2) DEFAULT 0,
     invoice_attachment VARCHAR(255),
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL,
     FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS purchase_returns (
     rate_per_ton DECIMAL(12,2) NOT NULL,
     return_amount DECIMAL(12,2) NOT NULL,
     reason TEXT,
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL,
     FOREIGN KEY (purchase_id) REFERENCES purchases(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS purchase_adjustments (
     new_value DECIMAL(12,3),
     reason TEXT,
     adjusted_by VARCHAR(100),
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL,
     FOREIGN KEY (purchase_id) REFERENCES purchases(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

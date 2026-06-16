@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS tanks (
     capacity DECIMAL(12,3) DEFAULT 0,
     location VARCHAR(255),
     current_stock DECIMAL(12,3) DEFAULT 0,
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS sales (
     rate_per_ton DECIMAL(12,2) NOT NULL,
     total_amount DECIMAL(12,2) NOT NULL,
     payment_type ENUM('Cash','Credit') DEFAULT 'Cash',
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL,
     FOREIGN KEY (tank_id) REFERENCES tanks(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS stock_adjustments (
     adjustment_type ENUM('Shortage','Leakage','Measurement_Difference') NOT NULL,
     quantity DECIMAL(12,3) NOT NULL,
     description TEXT,
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL,
     FOREIGN KEY (tank_id) REFERENCES tanks(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -48,6 +48,6 @@ CREATE TABLE IF NOT EXISTS stock_ledger (
     balance_before DECIMAL(12,3) DEFAULT 0,
     balance_after DECIMAL(12,3) DEFAULT 0,
     description TEXT,
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (tank_id) REFERENCES tanks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

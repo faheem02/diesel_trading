@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS customers (
     opening_balance DECIMAL(12,2) DEFAULT 0.00,
     credit_limit DECIMAL(12,2) DEFAULT 0.00,
     balance DECIMAL(12,2) DEFAULT 0.00,
-    created_at DATE DEFAULT (CURRENT_DATE),
+    created_at DATE DEFAULT CURRENT_DATE,
     updated_at DATE DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

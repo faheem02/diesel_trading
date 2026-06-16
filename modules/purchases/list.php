@@ -76,8 +76,8 @@ include '../../includes/header.php';
         <h6 class="m-0 font-weight-bold text-primary">Filter Records</h6>
     </div>
     <div class="card-body">
-        <form method="GET" class="form-inline">
-            <div class="row w-100">
+        <form method="GET">
+            <div class="row">
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">From Date</label>
@@ -115,12 +115,15 @@ include '../../includes/header.php';
                     </div>
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary mr-2">
-                        <i class="fas fa-search"></i> Filter
-                    </button>
-                    <a href="list.php" class="btn btn-secondary">
-                        <i class="fas fa-redo"></i> Reset
-                    </a>
+                    <div class="form-group w-100">
+                        <label class="small font-weight-bold d-block">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary mr-2">
+                            <i class="fas fa-search"></i> Filter
+                        </button>
+                        <a href="list.php" class="btn btn-secondary">
+                            <i class="fas fa-redo"></i> Reset
+                        </a>
+                    </div>
                 </div>
             </div>
         </form>
@@ -142,15 +145,13 @@ include '../../includes/header.php';
                         <th>Qty (Ton)</th>
                         <th>Rate/Ton</th>
                         <th>Net Cost</th>
-                        <th>Tankers</th>
-                        <th>Return</th>
                         <th>Status / Payment</th>
-                        <th>Actions</th>
+                        <th class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows === 0): ?>
-                        <tr><td colspan="10" class="text-center text-muted py-4">No purchase records found.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">No purchase records found.</td></tr>
                     <?php else: ?>
                         <?php while ($row = $result->fetch_assoc()): ?>
                             <tr>
@@ -163,21 +164,6 @@ include '../../includes/header.php';
                                 <td><?= number_format($row['rate_per_ton'], 2) ?></td>
                                 <td class="font-weight-bold"><?= number_format($row['net_purchase_cost'], 2) ?></td>
                                 <td>
-                                    <a href="#" class="btn btn-sm btn-outline-primary mb-1" data-toggle="modal" data-target="#tankerModal<?= $row['id'] ?>">
-                                        <i class="fas fa-truck"></i> <?= $row['tanker_count'] ?> Tanker<?= $row['tanker_count'] != 1 ? 's' : '' ?>
-                                    </a>
-                                    <?php if ($row['return_count'] > 0): ?>
-                                        <span class="badge badge-warning d-inline-block mr-1" title="Returns">
-                                            <i class="fas fa-undo-alt"></i> <?= $row['return_count'] ?>
-                                        </span>
-                                    <?php endif; ?>
-                                    <?php if ($row['adjustment_count'] > 0): ?>
-                                        <span class="badge badge-info d-inline-block" title="Adjustments">
-                                            <i class="fas fa-sliders-h"></i> <?= $row['adjustment_count'] ?>
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
                                     <?php
                                     $badge = $row['payment_status'] == 'Paid' ? 'success' : ($row['payment_status'] == 'Partial Paid' ? 'warning' : 'danger');
                                     $paid = $row['paid_amount'];
@@ -189,14 +175,27 @@ include '../../includes/header.php';
                                     <?php if ($remaining > 0): ?>
                                         <small class="d-block text-danger font-weight-bold">Due: Rs. <?= number_format($remaining, 0) ?></small>
                                     <?php endif; ?>
+                                    <?php if ($row['return_count'] > 0): ?>
+                                        <span class="badge badge-warning mt-1 d-inline-block" title="Returns">
+                                            <i class="fas fa-undo-alt"></i> <?= $row['return_count'] ?> Return<?= $row['return_count'] != 1 ? 's' : '' ?>
+                                        </span>
+                                    <?php endif; ?>
+                                    <?php if ($row['adjustment_count'] > 0): ?>
+                                        <span class="badge badge-info mt-1 d-inline-block" title="Adjustments">
+                                            <i class="fas fa-sliders-h"></i> <?= $row['adjustment_count'] ?> Adjustment<?= $row['adjustment_count'] != 1 ? 's' : '' ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm">
-                                        <a href="returns.php?purchase_id=<?= $row['id'] ?>" class="btn btn-outline-warning">
-                                            <i class="fas fa-undo-alt"></i> Return
+                                        <a href="#" class="btn btn-info" data-toggle="modal" data-target="#tankerModal<?= $row['id'] ?>" title="View Tanker Details">
+                                            <i class="fas fa-eye"></i> View
                                         </a>
-                                        <a href="adjustments.php?purchase_id=<?= $row['id'] ?>" class="btn btn-outline-info">
-                                            <i class="fas fa-sliders-h"></i> Adjust
+                                        <a href="returns.php?purchase_id=<?= $row['id'] ?>" class="btn btn-outline-warning" title="Return">
+                                            <i class="fas fa-undo-alt"></i>
+                                        </a>
+                                        <a href="adjustments.php?purchase_id=<?= $row['id'] ?>" class="btn btn-outline-secondary" title="Adjust">
+                                            <i class="fas fa-sliders-h"></i>
                                         </a>
                                     </div>
                                 </td>

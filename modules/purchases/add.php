@@ -21,12 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!isset($_POST['tankers']) || count($_POST['tankers']) < 1) {
         $error = "Please add at least one tanker entry.";
     } else {
-        // If Cash is selected, ensure we use the cash account ID
-        if ($payment_method === 'Cash' && $bank_account_id <= 0) {
-            $cash_acc = $conn->query("SELECT id FROM bank_accounts WHERE account_type = 'Cash' LIMIT 1")->fetch_assoc();
-            if ($cash_acc) $bank_account_id = $cash_acc['id'];
-        }
-        
         $tankers = $_POST['tankers'];
         $total_qty = 0;
         $total_waste = 0;
@@ -125,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             
                             $stock_desc = "Purchase Invoice #$invoice_no (Tanker: $tanker_no)";
                             $stmt_sl = $conn->prepare("INSERT INTO stock_ledger (tank_id, transaction_date, movement_type, reference_type, reference_id, quantity, rate, amount, balance_before, balance_after, description) VALUES (?, ?, 'IN', 'purchase', ?, ?, ?, ?, ?, ?, ?)");
-                            $stmt_sl->bind_param("isidddddds", $tank_id, $purchase_date, $purchase_id, $qty, $rate, $t_total, $bal_before, $bal_after, $stock_desc);
+                            $stmt_sl->bind_param("isiddddds", $tank_id, $purchase_date, $purchase_id, $qty, $rate, $t_total, $bal_before, $bal_after, $stock_desc);
                             $stmt_sl->execute();
                             $stmt_sl->close();
                         }
@@ -268,25 +262,31 @@ include '../../includes/header.php';
                     <div class="form-group">
                         <label class="small font-weight-bold">Payment Method</label>
                         <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash" <?= (!isset($_POST['payment_method']) || $_POST['payment_method']==='Cash') ? 'selected':'' ?>>Cash</option>
-                            <option value="Bank" <?= (isset($_POST['payment_method']) && $_POST['payment_method']==='Bank') ? 'selected':'' ?>>Bank</option>
+                            <option value="Cash"          <?= (!isset($_POST['payment_method']) || $_POST['payment_method']==='Cash')          ? 'selected':'' ?>>Cash</option>
+                            <option value="Bank Transfer" <?= (isset($_POST['payment_method']) && $_POST['payment_method']==='Bank Transfer') ? 'selected':'' ?>>Bank Transfer</option>
+                            <option value="Cheque"        <?= (isset($_POST['payment_method']) && $_POST['payment_method']==='Cheque')        ? 'selected':'' ?>>Cheque</option>
                         </select>
                     </div>
                 </div>
                 <div class="col-md-4" id="bank_account_group">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Select Bank Account <span class="text-danger">*</span></label>
+                        <label class="small font-weight-bold" id="acct_label">Cash Account <span class="text-danger">*</span></label>
                         <select name="bank_account_id" id="bank_account_id" class="form-control">
-                            <option value="">-- Select Bank --</option>
-                            <?php if ($bank_accounts && $bank_accounts->num_rows > 0):
-                                $bank_accounts->data_seek(0);
-                                while ($b = $bank_accounts->fetch_assoc()): 
-                                    if($b['account_type'] !== 'Bank') continue; ?>
+                            <option value="">-- Select Account --</option>
+                            <?php
+                            $bank_accounts->data_seek(0);
+                            while ($b = $bank_accounts->fetch_assoc()):
+                                $display = htmlspecialchars($b['account_name']);
+                                if ($b['bank_name'])      $display = htmlspecialchars($b['bank_name']) . ' — ' . $display;
+                                if ($b['account_number']) $display .= ' (' . htmlspecialchars($b['account_number']) . ')';
+                                $display .= ' | Bal: ' . number_format($b['current_balance'], 2);
+                            ?>
                                 <option value="<?= $b['id'] ?>"
+                                    data-type="<?= $b['account_type'] ?>"
                                     <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($b['bank_name'] . " - " . $b['account_name']) ?> (Bal: <?= number_format($b['current_balance'], 2) ?>)
+                                    [<?= $b['account_type'] ?>] <?= $display ?>
                                 </option>
-                            <?php endwhile; endif; ?>
+                            <?php endwhile; ?>
                         </select>
                     </div>
                 </div>
@@ -511,20 +511,29 @@ document.querySelectorAll('#tankersBody .tanker-row').forEach(row => {
 });
 
 const paymentStatus = document.getElementById('payment_status');
-const paidAmount = document.getElementById('paid_amount');
-const pmSelect = document.getElementById('payment_method');
-const acctSelect = document.getElementById('bank_account_id');
+const paidAmount    = document.getElementById('paid_amount');
+const pmSelect      = document.getElementById('payment_method');
+const acctSelect    = document.getElementById('bank_account_id');
+const acctLabel     = document.getElementById('acct_label');
 const bankAcctGroup = document.getElementById('bank_account_group');
 const paymentAcctGroup = document.getElementById('payment_account_group');
 
 function filterAccounts() {
-    if (pmSelect.value === 'Bank') {
-        bankAcctGroup.style.display = '';
-        acctSelect.required = true;
-    } else {
-        bankAcctGroup.style.display = 'none';
-        acctSelect.required = false;
-        acctSelect.value = '';
+    const isCash   = (pmSelect.value === 'Cash');
+    const wantType = isCash ? 'Cash' : 'Bank';
+
+    acctLabel.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
+
+    let firstMatch = null;
+    acctSelect.querySelectorAll('option[data-type]').forEach(opt => {
+        const show = (opt.dataset.type === wantType);
+        opt.style.display = show ? '' : 'none';
+        if (show && !firstMatch) firstMatch = opt.value;
+    });
+
+    const cur = acctSelect.querySelector('option:checked');
+    if (!cur || cur.style.display === 'none') {
+        acctSelect.value = firstMatch || '';
     }
 }
 
@@ -533,13 +542,17 @@ function togglePaidAmount() {
         paidAmount.value = 0;
         paidAmount.readOnly = true;
         paymentAcctGroup.style.display = 'none';
-        bankAcctGroup.style.display = 'none';
+        bankAcctGroup.style.display    = 'none';
+        acctSelect.required = false;
     } else {
         paidAmount.readOnly = false;
         paymentAcctGroup.style.display = '';
+        bankAcctGroup.style.display    = '';
+        acctSelect.required = true;
         filterAccounts();
     }
 }
+
 paymentStatus.addEventListener('change', togglePaidAmount);
 pmSelect.addEventListener('change', filterAccounts);
 togglePaidAmount();

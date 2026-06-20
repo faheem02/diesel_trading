@@ -1,7 +1,116 @@
-<?php
+﻿<?php
 session_start();
 $active_page = 'general_ledger';
 require_once '../../config/db.php';
+
+$success = "";
+$error = "";
+
+// Handle Personal Account add/edit/delete
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        if ($_POST['action'] === 'add_personal_account') {
+            $person_name = trim($_POST['person_name']);
+            $mobile = trim($_POST['mobile'] ?? '');
+            $address = trim($_POST['address'] ?? '');
+            $opening_balance = floatval($_POST['opening_balance'] ?? 0);
+            
+            if (empty($person_name)) {
+                $error = "Person name is required.";
+            } else {
+                // Check if person already exists
+                $check = $conn->prepare("SELECT id FROM personal_accounts WHERE person_name = ?");
+                $check->bind_param("s", $person_name);
+                $check->execute();
+                $result = $check->get_result();
+                
+                if ($result->num_rows > 0) {
+                    $error = "Person already exists!";
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO personal_accounts (person_name, mobile, address, balance) VALUES (?, ?, ?, ?)");
+                    $stmt->bind_param("sssd", $person_name, $mobile, $address, $opening_balance);
+                    if ($stmt->execute()) {
+                        $account_id = $conn->insert_id;
+                        
+                        // Add opening balance entry in ledger if balance > 0
+                        if ($opening_balance > 0) {
+                            $desc = "Opening Balance";
+                            $stmt2 = $conn->prepare("INSERT INTO personal_ledger (account_id, transaction_date, description, debit, credit, balance, reference_type) VALUES (?, CURDATE(), ?, ?, 0, ?, 'opening_balance')");
+                            $stmt2->bind_param("isdd", $account_id, $desc, $opening_balance, $opening_balance);
+                            $stmt2->execute();
+                            $stmt2->close();
+                        }
+                        
+                        $success = "Personal account added successfully!";
+                    } else {
+                        $error = "Database error: " . $stmt->error;
+                    }
+                    $stmt->close();
+                }
+                $check->close();
+            }
+        } elseif ($_POST['action'] === 'add_payment') {
+            $account_id = intval($_POST['account_id']);
+            $payment_date = $_POST['payment_date'];
+            $payment_type = $_POST['payment_type']; // 'received' or 'given'
+            $amount = floatval($_POST['amount']);
+            $description = trim($_POST['description']);
+            $payment_method = trim($_POST['payment_method'] ?? 'Cash');
+            $bank_account_id = intval($_POST['bank_account_id'] ?? 0);
+            
+            if ($account_id <= 0 || empty($payment_date) || $amount <= 0) {
+                $error = "Please fill all required fields.";
+            } else {
+                // Get current balance
+                $bal_query = $conn->query("SELECT balance FROM personal_accounts WHERE id = $account_id");
+                $current_bal = $bal_query->fetch_assoc()['balance'] ?? 0;
+                
+                // Debit = Received (money comes in), Credit = Given (money goes out)
+                $debit = ($payment_type === 'received') ? $amount : 0;
+                $credit = ($payment_type === 'given') ? $amount : 0;
+                $new_balance = $current_bal + $debit - $credit;
+                
+                $conn->begin_transaction();
+                try {
+                    // Insert into personal_ledger
+                    $stmt = $conn->prepare("INSERT INTO personal_ledger (account_id, transaction_date, description, debit, credit, balance, reference_type, payment_method, bank_account_id) VALUES (?, ?, ?, ?, ?, ?, 'payment', ?, ?)");
+                    $stmt->bind_param("issdddsi", $account_id, $payment_date, $description, $debit, $credit, $new_balance, $payment_method, $bank_account_id);
+                    $stmt->execute();
+                    $stmt->close();
+                    
+                    // Update personal_accounts balance
+                    $conn->query("UPDATE personal_accounts SET balance = $new_balance WHERE id = $account_id");
+                    
+                    // If bank account selected, update bank balance
+                    if ($bank_account_id > 0 && $payment_type === 'received') {
+                        $conn->query("UPDATE bank_accounts SET current_balance = current_balance + $amount WHERE id = $bank_account_id");
+                    } elseif ($bank_account_id > 0 && $payment_type === 'given') {
+                        $conn->query("UPDATE bank_accounts SET current_balance = current_balance - $amount WHERE id = $bank_account_id");
+                    }
+                    
+                    $conn->commit();
+                    $success = "Payment recorded successfully!";
+                } catch (Exception $e) {
+                    $conn->rollback();
+                    $error = "Database error: " . $e->getMessage();
+                }
+            }
+        }
+    }
+}
+
+// Handle DELETE
+if (isset($_GET['delete_account']) && is_numeric($_GET['delete_account'])) {
+    $id = intval($_GET['delete_account']);
+    $stmt = $conn->prepare("DELETE FROM personal_accounts WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
+        $success = "Account deleted successfully!";
+    } else {
+        $error = "Cannot delete account. It may have linked records.";
+    }
+    $stmt->close();
+}
 
 $from_date = $_GET['from_date'] ?? date('Y-m-01');
 $to_date   = $_GET['to_date']   ?? date('Y-m-d');
@@ -61,6 +170,29 @@ if (matchesFilter($type_filter, ['', 'sale', 'payment', 'return', 'opening_balan
         $types .= "s";
     }
     $sql .= " ORDER BY cl.transaction_date ASC, cl.id ASC";
+    $entries = array_merge($entries, fetchGL($conn, $sql, $params, $types));
+}
+
+// Personal Accounts (External) ledger entries
+if (matchesFilter($type_filter, ['', 'personal_payment', 'opening_balance'])) {
+    $sql = "SELECT pl.transaction_date AS txn_date, 
+                   CONCAT('[Personal] ', pl.description) AS description, 
+                   pl.debit, pl.credit,
+                   pa.person_name AS party, 'Personal Account' AS party_type, 
+                   pl.reference_type, pl.reference_id,
+                   ba.account_name AS account_ref, ba.account_type
+            FROM personal_ledger pl
+            JOIN personal_accounts pa ON pl.account_id = pa.id
+            LEFT JOIN bank_accounts ba ON pl.bank_account_id = ba.id
+            WHERE pl.transaction_date BETWEEN ? AND ?";
+    $params = [$from_date, $to_date];
+    $types = "ss";
+    if ($type_filter) {
+        $sql .= " AND pl.reference_type = ?";
+        $params[] = $type_filter;
+        $types .= "s";
+    }
+    $sql .= " ORDER BY pl.transaction_date ASC, pl.id ASC";
     $entries = array_merge($entries, fetchGL($conn, $sql, $params, $types));
 }
 
@@ -141,15 +273,41 @@ unset($e);
 $total_debit  = array_sum(array_column($entries, 'debit'));
 $total_credit = array_sum(array_column($entries, 'credit'));
 
+// Get all Personal Accounts for dropdown
+$personal_accounts = $conn->query("SELECT id, person_name, balance FROM personal_accounts ORDER BY person_name ASC");
+$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
+
 include '../../includes/header.php';
 ?>
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-book mr-1"></i> General Ledger</h1>
-    <button onclick="window.print()" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm">
-        <i class="fas fa-print fa-sm"></i> Print
-    </button>
+    <div>
+        <button class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm" data-toggle="modal" data-target="#addPersonalAccountModal">
+            <i class="fas fa-user-plus"></i> Add Personal Account
+        </button>
+        <button class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm" data-toggle="modal" data-target="#addPaymentModal">
+            <i class="fas fa-money-bill-wave"></i> Add Payment
+        </button>
+        <button onclick="openPrint()" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm">
+            <i class="fas fa-print fa-sm"></i> Print
+        </button>
+    </div>
 </div>
+
+<?php if ($success): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle"></i> <?= htmlspecialchars($success) ?>
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+<?php endif; ?>
+
+<?php if ($error): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle"></i> <?= htmlspecialchars($error) ?>
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+<?php endif; ?>
 
 <!-- Summary Cards -->
 <div class="row mb-3">
@@ -158,7 +316,7 @@ include '../../includes/header.php';
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Debit (Rs.)</div>
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Debit ($)</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($total_debit, 2) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-arrow-circle-down fa-2x text-success"></i></div>
@@ -171,7 +329,7 @@ include '../../includes/header.php';
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Credit (Rs.)</div>
+                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Credit ($)</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($total_credit, 2) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-arrow-circle-up fa-2x text-danger"></i></div>
@@ -234,6 +392,7 @@ include '../../includes/header.php';
                     <option value="return" <?= $type_filter === 'return' ? 'selected' : '' ?>>Return</option>
                     <option value="expense" <?= $type_filter === 'expense' ? 'selected' : '' ?>>Expense</option>
                     <option value="adjustment" <?= $type_filter === 'adjustment' ? 'selected' : '' ?>>Adjustment</option>
+                    <option value="personal_payment" <?= $type_filter === 'personal_payment' ? 'selected' : '' ?>>Personal Payment</option>
                 </select>
             </div>
             <button type="submit" class="btn btn-sm btn-primary mr-2 mb-2"><i class="fas fa-search fa-sm"></i> Filter</button>
@@ -257,9 +416,9 @@ include '../../includes/header.php';
                         <th>Party</th>
                         <th>Type</th>
                         <th>Account</th>
-                        <th class="text-right">Debit (Rs.)</th>
-                        <th class="text-right">Credit (Rs.)</th>
-                        <th class="text-right">Balance (Rs.)</th>
+                        <th class="text-right">Debit ($)</th>
+                        <th class="text-right">Credit ($)</th>
+                        <th class="text-right">Balance ($)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -285,6 +444,7 @@ include '../../includes/header.php';
                                     'opening_balance' => ['Opening', 'secondary'],
                                     'stock_sale' => ['Stock Sale', 'info'],
                                     'adjustment' => ['Adjustment', 'dark'],
+                                    'personal_payment' => ['Personal Payment', 'purple'],
                                 ];
                                 $ref = $e['reference_type'] ?? '';
                                 [$label, $color] = $badge_map[$ref] ?? [$ref, 'secondary'];
@@ -330,6 +490,119 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- Add Personal Account Modal -->
+<div class="modal fade" id="addPersonalAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="add_personal_account">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-user-plus mr-1"></i> Add Personal Account</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Person Name <span class="text-danger">*</span></label>
+                        <input type="text" name="person_name" class="form-control" required placeholder="Enter person name">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Mobile</label>
+                        <input type="text" name="mobile" class="form-control" placeholder="Mobile number">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Address</label>
+                        <textarea name="address" class="form-control" rows="2" placeholder="Address"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Opening Balance ($)</label>
+                        <input type="number" step="0.01" min="0" name="opening_balance" class="form-control" value="0">
+                        <small class="text-muted">Initial balance if this person already owes or is owed money</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Payment Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="add_payment">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-money-bill-wave mr-1"></i> Add Personal Payment</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Person <span class="text-danger">*</span></label>
+                        <select name="account_id" class="form-control" required>
+                            <option value="">-- Select Person --</option>
+                            <?php while ($p = $personal_accounts->fetch_assoc()): ?>
+                                <option value="<?= $p['id'] ?>">
+                                    <?= htmlspecialchars($p['person_name']) ?> 
+                                    (Balance: <?= number_format($p['balance'], 2) ?>)
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Date <span class="text-danger">*</span></label>
+                        <input type="date" name="payment_date" class="form-control" required value="<?= date('Y-m-d') ?>">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Payment Type <span class="text-danger">*</span></label>
+                        <select name="payment_type" class="form-control" required>
+                            <option value="received">Received (Person paid you)</option>
+                            <option value="given">Given (You paid person)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Amount ($) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required placeholder="Enter amount">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Description</label>
+                        <input type="text" name="description" class="form-control" placeholder="Payment description">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Payment Method</label>
+                        <select name="payment_method" class="form-control">
+                            <option value="Cash">Cash</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Bank/Cash Account</label>
+                        <select name="bank_account_id" class="form-control">
+                            <option value="">-- Select Account --</option>
+                            <?php 
+                            $bank_accounts->data_seek(0);
+                            while ($b = $bank_accounts->fetch_assoc()): ?>
+                                <option value="<?= $b['id'] ?>">
+                                    [<?= $b['account_type'] ?>] <?= htmlspecialchars($b['account_name']) ?>
+                                    <?php if ($b['bank_name']): ?> - <?= htmlspecialchars($b['bank_name']) ?><?php endif; ?>
+                                    (Bal: <?= number_format($b['current_balance'], 2) ?>)
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 $(document).ready(function() {
     $('#glTable').DataTable({
@@ -340,6 +613,19 @@ $(document).ready(function() {
         language: { search: "Search:", lengthMenu: "Show _MENU_ entries" }
     });
 });
+
+function openPrint() {
+    var params = new URLSearchParams(window.location.search);
+    window.open('general_ledger_print.php?' + params.toString(), '_blank');
+}
 </script>
+
+<div id="print-header" style="display:none;">
+    <h4>General Ledger</h4>
+    <p>Period: <?= htmlspecialchars($from_date) ?> to <?= htmlspecialchars($to_date) ?>
+       <?= $type_filter ? ' | Type: ' . htmlspecialchars(ucfirst($type_filter)) : '' ?>
+    </p>
+    <p>Printed on: <?= date('d M Y, h:i A') ?></p>
+</div>
 
 <?php include '../../includes/footer.php'; ?>

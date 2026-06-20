@@ -71,8 +71,8 @@ $sales_data = [];
 while ($row = $result->fetch_assoc()) {
     $qty = $row['quantity'];
     $diesel_cost  = $qty * $avg_diesel_rate;
-    $freight_cost = $qty * $avg_freight_rate;
-    $other_cost   = $qty * $avg_other_rate;
+    $freight_cost = $row['freight_charges'];
+    $other_cost   = $row['other_charges'];
     $profit = $row['total_amount'] - $diesel_cost - $freight_cost - $other_cost;
 
     $total_sale_value  += $row['total_amount'];
@@ -258,9 +258,17 @@ include '../../includes/header.php';
                                 <?= number_format($sd['profit'], 0) ?>
                             </td>
                             <td>
-                                <span class="badge badge-<?= $row['payment_type'] === 'Credit' ? 'warning' : 'success' ?>">
-                                    <?= $row['payment_type'] ?>
-                                </span>
+                                <?php if (!empty($row['payment_type'])): ?>
+                                    <span class="badge badge-<?= $row['payment_type'] === 'Credit' ? 'warning' : 'success' ?>">
+                                        <?= htmlspecialchars($row['payment_type']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">Not Set</span>
+                                <?php endif; ?>
+                                
+                                <?php if (!empty($row['payment_method']) && $row['payment_method'] != 'Cash'): ?>
+                                    <small class="d-block text-muted"><?= htmlspecialchars($row['payment_method']) ?></small>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>
@@ -290,11 +298,14 @@ include '../../includes/header.php';
     </div>
     <div class="card-body">
         <p class="mb-0 text-muted small">
-            Diesel cost rate: <strong>Rs. <?= number_format($avg_diesel_rate, 2) ?>/ton</strong> &middot;
-            Freight rate: <strong>Rs. <?= number_format($avg_freight_rate, 2) ?>/ton</strong> &middot;
-            Other charges rate: <strong>Rs. <?= number_format($avg_other_rate, 2) ?>/ton</strong> &middot;
-            Total cost rate: <strong>Rs. <?= number_format($avg_diesel_rate + $avg_freight_rate + $avg_other_rate, 2) ?>/ton</strong>
+            Diesel cost rate: <strong>$ <?= number_format($avg_diesel_rate, 2) ?>/ton</strong> &middot;
+            Freight rate: <strong>$ <?= number_format($avg_freight_rate, 2) ?>/ton</strong> &middot;
+            Other charges rate: <strong>$ <?= number_format($avg_other_rate, 2) ?>/ton</strong> &middot;
+            Total cost rate: <strong>$ <?= number_format($avg_diesel_rate + $avg_freight_rate + $avg_other_rate, 2) ?>/ton</strong>
             &mdash; Calculated from all purchase records<?= !empty($from_date) || !empty($to_date) ? ' up to the selected date range' : '' ?>.
+        </p>
+        <p class="mb-0 text-muted small mt-1">
+            <i class="fas fa-info-circle text-info"></i> Freight and Other charges shown are the actual amounts from each sale record.
         </p>
     </div>
 </div>

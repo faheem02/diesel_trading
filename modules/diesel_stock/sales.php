@@ -245,14 +245,14 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Rate per Ton (Rs.) <span class="text-danger">*</span></label>
+                        <label class="small font-weight-bold">Rate per Ton ($) <span class="text-danger">*</span></label>
                         <input type="number" step="0.01" min="0" name="rate_per_ton" id="rate_per_ton" class="form-control" required
                                value="<?= htmlspecialchars($_POST['rate_per_ton'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Total Amount (Rs.)</label>
+                        <label class="small font-weight-bold">Total Amount ($)</label>
                         <input type="text" id="total_amount" class="form-control bg-light" readonly value="0.00">
                     </div>
                 </div>

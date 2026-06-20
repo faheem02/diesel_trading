@@ -54,7 +54,7 @@ include '../../../includes/header.php';
         <div class="card bg-success text-white shadow h-100">
             <div class="card-body">
                 <div class="font-weight-bold text-white-50 small">Total Payments Made</div>
-                <div class="display-6 font-weight-bold">Rs. <?= number_format($total_paid, 2) ?></div>
+                <div class="display-6 font-weight-bold">$ <?= number_format($total_paid, 2) ?></div>
             </div>
         </div>
     </div>
@@ -103,7 +103,7 @@ include '../../../includes/header.php';
                         <th>Date</th>
                         <th>Supplier</th>
                         <th>Description</th>
-                        <th class="text-right">Amount (Rs.)</th>
+                        <th class="text-right">Amount ($)</th>
                         <th class="text-right">Balance After</th>
                     </tr>
                 </thead>

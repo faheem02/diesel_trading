@@ -116,7 +116,7 @@ include '../../includes/header.php';
                         <th>Vehicle</th>
                         <th>Qty (Tons)</th>
                         <th>Rate/Ton</th>
-                        <th>Total (Rs.)</th>
+                        <th>Total ($)</th>
                         <th>Payment</th>
                     </tr>
                 </thead>

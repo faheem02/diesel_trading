@@ -1,27 +1,30 @@
 <?php
-// Compute project base URL (absolute from document root)
-$doc_root = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
-$project_root = str_replace('\\', '/', dirname(__DIR__));
-$project_path = str_replace($doc_root, '', $project_root);
-$base_path = ($project_path === '' || $project_path === '/') ? './' : rtrim($project_path, '/') . '/';
-$asset_path = $base_path . 'assets/sb-admin2/';
-
 if (!isset($_SESSION['user_id'])) {
-    header("Location: " . $base_path . "auth/login.php");
+    $script_name = $_SERVER['SCRIPT_NAME'];
+    if (strpos($script_name, '/auth/') === false) {
+        $depth = substr_count(trim(dirname($script_name), '/'), '/');
+        $prefix = str_repeat('../', $depth);
+        header("Location: " . $prefix . "auth/login.php");
+    } else {
+        header("Location: login.php");
+    }
     exit;
 }
 
-$purchases_active = in_array($active_page ?? '', ['purchase_add', 'purchase_list', 'purchase_return', 'purchase_return_list', 'purchase_adjustment']);
-$suppliers_active = in_array($active_page ?? '', ['supplier_add', 'supplier_list', 'supplier_ledger', 'supplier_payment', 'supplier_outstanding', 'supplier_statement', 'supplier_payment_history']);
-$diesel_stock_active = in_array($active_page ?? '', ['tank_list', 'stock_in', 'stock_in_list', 'sale_add', 'sale_list', 'stock_adjustment', 'adjustment_list', 'stock_report_current', 'stock_report_tank_wise', 'stock_report_daily', 'stock_report_ledger', 'rpt_stock_summary']);
-$customers_active = in_array($active_page ?? '', ['customer_add', 'customer_list', 'customer_ledger', 'customer_payment', 'customer_recovery']);
-$sales_mgmt_active = in_array($active_page ?? '', ['sale_entry', 'sale_list']);
-$tanker_active = in_array($active_page ?? '', ['tanker_list', 'tanker_expense_add', 'tanker_expense_list']);
-$accounts_active = in_array($active_page ?? '', ['cashbook', 'bankbook', 'general_ledger']);
-$reports_active = in_array($active_page ?? '', [
-    'rpt_purchase', 'rpt_supplier_tanker_purchase',
-    'rpt_sales_daily_monthly', 'rpt_sales_customer_vehicle',
-]);
+// Calculate base path for assets relative to current file
+$script_dir = dirname($_SERVER['SCRIPT_NAME']);
+$depth = substr_count(trim($script_dir, '/'), '/');
+$base_path = $depth > 0 ? str_repeat('../', $depth) : './';
+$asset_path = $base_path . 'assets/sb-admin2/';
+
+$purchases_active    = in_array($active_page ?? '', ['purchase_add', 'purchase_list', 'purchase_return', 'purchase_return_list', 'purchase_adjustment']);
+$suppliers_active    = in_array($active_page ?? '', ['supplier_add', 'supplier_list', 'supplier_ledger', 'supplier_payment', 'supplier_outstanding', 'supplier_payment_history']);
+$diesel_stock_active = in_array($active_page ?? '', ['tank_list', 'stock_in', 'stock_in_list', 'sale_add', 'sale_list', 'stock_adjustment', 'adjustment_list', 'stock_report_current', 'stock_report_tank_wise', 'stock_report_daily', 'stock_report_ledger']);
+$customers_active    = in_array($active_page ?? '', ['customer_add', 'customer_list', 'customer_ledger', 'customer_payment', 'customer_recovery']);
+$sales_mgmt_active   = in_array($active_page ?? '', ['sale_entry', 'sale_list', 'sale_return', 'sale_return_list', 'sales_outstanding']);
+$tanker_active       = in_array($active_page ?? '', ['tanker_list', 'tanker_expense_add', 'tanker_expense_list', 'expense_add', 'expense_list']);
+$accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'accounts_manage', 'general_ledger']);
+$reports_active      = in_array($active_page ?? '', ['rpt_purchase', 'rpt_supplier_tanker_purchase', 'rpt_sales_daily_monthly', 'rpt_sales_customer_vehicle']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,11 +38,8 @@ $reports_active = in_array($active_page ?? '', [
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
     <link href="<?= $asset_path ?>css/sb-admin-2.min.css" rel="stylesheet">
     <link href="<?= $asset_path ?>vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-    <!-- Select2 Searchable Dropdowns -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css" rel="stylesheet">
     <script src="<?= $asset_path ?>vendor/jquery/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -56,6 +56,7 @@ $reports_active = in_array($active_page ?? '', [
             .table th, .table td { border: 1px solid #000 !important; }
             @page { margin: 0.5in; }
         }
+        
         :root {
             --navy: #2C3E50;
             --navy-dark: #1A252F;
@@ -63,6 +64,7 @@ $reports_active = in_array($active_page ?? '', [
             --amber-dark: #D68910;
             --amber-light: #FEF5E7;
         }
+        
         .bg-gradient-primary {
             background: linear-gradient(180deg, var(--navy) 10%, var(--navy-dark) 100%) !important;
         }
@@ -202,6 +204,172 @@ $reports_active = in_array($active_page ?? '', [
             width: 16px;
             text-align: center;
         }
+
+        /* ===== FIXED FORM INPUT STYLES ===== */
+        /* Make all form controls a consistent, readable size */
+        .form-control {
+            width: 100% !important;
+            height: 42px !important;
+            font-size: 14px !important;
+            padding: 8px 14px !important;
+            border-radius: 5px !important;
+            border: 1px solid #d1d3e2 !important;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+            box-sizing: border-box !important;
+        }
+
+        .form-control:focus {
+            border-color: #F39C12 !important;
+            box-shadow: 0 0 0 0.2rem rgba(243, 156, 18, 0.25) !important;
+        }
+
+        .form-control-sm {
+            height: 36px !important;
+            font-size: 13px !important;
+            padding: 6px 12px !important;
+        }
+
+        .form-control-lg {
+            height: 48px !important;
+            font-size: 16px !important;
+            padding: 10px 18px !important;
+        }
+
+        /* Override any inline width set by JavaScript */
+        input.form-control[style*="width"] {
+            width: 100% !important;
+        }
+
+        /* Select dropdowns */
+        select.form-control {
+            height: 42px !important;
+            padding: 6px 12px !important;
+        }
+
+        select.form-control-sm {
+            height: 36px !important;
+        }
+
+        /* Textareas */
+        textarea.form-control {
+            min-height: 80px !important;
+            resize: vertical !important;
+        }
+
+        /* Labels */
+        label, .form-label {
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            margin-bottom: 5px !important;
+            color: #333 !important;
+        }
+
+        /* Form groups */
+        .form-group {
+            margin-bottom: 16px !important;
+        }
+
+        /* Modal inputs */
+        .modal .form-control {
+            height: 42px !important;
+            font-size: 14px !important;
+        }
+
+        .modal .form-control-sm {
+            height: 36px !important;
+        }
+
+        .modal-body {
+            padding: 25px !important;
+        }
+
+        .modal .form-group {
+            margin-bottom: 18px !important;
+        }
+
+        /* Table inputs */
+        .table .form-control,
+        .table .form-control-sm {
+            height: 34px !important;
+            font-size: 13px !important;
+            padding: 4px 10px !important;
+            border-radius: 4px !important;
+        }
+
+        /* DataTable inputs */
+        .dataTables_wrapper .dataTables_filter input {
+            height: 38px !important;
+            padding: 6px 14px !important;
+            font-size: 14px !important;
+            margin-left: 8px !important;
+            border-radius: 4px !important;
+            border: 1px solid #d1d3e2 !important;
+        }
+
+        .dataTables_wrapper .dataTables_length select {
+            height: 38px !important;
+            padding: 4px 10px !important;
+            font-size: 14px !important;
+            border-radius: 4px !important;
+            border: 1px solid #d1d3e2 !important;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 20px !important;
+            font-size: 14px !important;
+            border-radius: 5px !important;
+            font-weight: 500 !important;
+        }
+
+        .btn-sm {
+            padding: 6px 14px !important;
+            font-size: 13px !important;
+            border-radius: 4px !important;
+        }
+
+        .btn-lg {
+            padding: 12px 30px !important;
+            font-size: 16px !important;
+            border-radius: 6px !important;
+        }
+
+        /* Placeholder text */
+        ::placeholder {
+            color: #999 !important;
+            font-size: 14px !important;
+            opacity: 1 !important;
+        }
+
+        /* Input groups */
+        .input-group .form-control {
+            height: 42px !important;
+        }
+
+        .input-group .input-group-text {
+            height: 42px !important;
+            padding: 0 15px !important;
+            font-size: 14px !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .form-control {
+                height: 38px !important;
+                font-size: 13px !important;
+                padding: 6px 12px !important;
+            }
+            
+            .modal .form-control {
+                height: 38px !important;
+                font-size: 13px !important;
+            }
+            
+            .btn {
+                padding: 6px 16px !important;
+                font-size: 13px !important;
+            }
+        }
     </style>
 </head>
 
@@ -237,15 +405,6 @@ $reports_active = in_array($active_page ?? '', [
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'purchase_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/purchases/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Purchase List
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_return' ? 'active' : '' ?>" href="<?= $base_path ?>modules/purchases/returns.php">
-                            <i class="fas fa-fw fa-undo-alt fa-sm mr-1"></i> New Return
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_return_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/purchases/returns_list.php">
-                            <i class="fas fa-fw fa-list fa-sm mr-1"></i> Return List
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_adjustment' ? 'active' : '' ?>" href="<?= $base_path ?>modules/purchases/adjustments.php">
-                            <i class="fas fa-fw fa-sliders-h fa-sm mr-1"></i> Adjustment
                         </a>
                     </div>
                 </div>
@@ -295,30 +454,15 @@ $reports_active = in_array($active_page ?? '', [
                         <a class="collapse-item <?= ($active_page ?? '') === 'tank_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/tanks.php">
                             <i class="fas fa-fw fa-oil-can fa-sm mr-1"></i> Tank Wise Stock
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_in' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/stock_in.php">
-                            <i class="fas fa-fw fa-arrow-down fa-sm mr-1"></i> Stock In
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_add' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/sales.php">
-                            <i class="fas fa-fw fa-arrow-up fa-sm mr-1"></i> Stock Out (Sale)
-                        </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'stock_adjustment' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/adjustments.php">
                             <i class="fas fa-fw fa-sliders-h fa-sm mr-1"></i> Stock Adjustment
                         </a>
                         <h6 class="collapse-header">Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_current' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/reports/current_stock.php">
-                            <i class="fas fa-fw fa-chart-pie fa-sm mr-1"></i> Current Stock
-                        </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_tank_wise' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/reports/tank_wise_stock.php">
-                            <i class="fas fa-fw fa-list fa-sm mr-1"></i> Tank Wise Stock
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_daily' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/reports/daily_movement.php">
-                            <i class="fas fa-fw fa-calendar-day fa-sm mr-1"></i> Daily Movement
+                            <i class="fas fa-fw fa-list fa-sm mr-1"></i> Stock Summary
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/reports/stock_ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> Stock Ledger
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'rpt_stock_summary' ? 'active' : '' ?>" href="<?= $base_path ?>modules/reports/stock_summary.php">
-                            <i class="fas fa-fw fa-chart-pie fa-sm mr-1"></i> Stock Summary
                         </a>
                     </div>
                 </div>
@@ -368,23 +512,28 @@ $reports_active = in_array($active_page ?? '', [
                         <a class="collapse-item <?= ($active_page ?? '') === 'sale_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Sales List
                         </a>
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_return' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/returns.php">
+                            <i class="fas fa-fw fa-undo-alt fa-sm mr-1"></i> New Return
+                        </a>
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_return_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/returns_list.php">
+                            <i class="fas fa-fw fa-list fa-sm mr-1"></i> Return List
+                        </a>
+                        <h6 class="collapse-header">Reports:</h6>
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sales_outstanding' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/reports/outstanding.php">
+                            <i class="fas fa-fw fa-chart-bar fa-sm mr-1"></i> Outstanding
+                        </a>
                     </div>
                 </div>
             </li>
             <hr class="sidebar-divider">
-            <div class="sidebar-heading">Tanker Management</div>
+            <div class="sidebar-heading">Expenses</div>
             <li class="nav-item <?= $tanker_active ? 'active' : '' ?>">
                 <a class="nav-link <?= $tanker_active ? '' : 'collapsed' ?>" href="#" data-toggle="collapse" data-target="#collapseTankers" aria-expanded="<?= $tanker_active ? 'true' : 'false' ?>" aria-controls="collapseTankers">
                     <i class="fas fa-fw fa-truck"></i>
-                    <span>Tankers</span>
+                    <span>Expenses</span>
                 </a>
                 <div id="collapseTankers" class="collapse <?= $tanker_active ? 'show' : '' ?>" aria-labelledby="headingTankers" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
-                        <h6 class="collapse-header">Manage Tankers:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'tanker_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/tankers/list.php">
-                            <i class="fas fa-fw fa-list fa-sm mr-1"></i> Tanker List
-                        </a>
-                        <h6 class="collapse-header">Expenses:</h6>
                         <a class="collapse-item <?= ($active_page ?? '') === 'tanker_expense_add' ? 'active' : '' ?>" href="<?= $base_path ?>modules/tankers/expenses_add.php">
                             <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> Add Expense
                         </a>
@@ -413,7 +562,6 @@ $reports_active = in_array($active_page ?? '', [
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/accounts/general_ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> General Ledger
                         </a>
-
                     </div>
                 </div>
             </li>

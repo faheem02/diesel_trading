@@ -116,7 +116,7 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Opening Balance (Rs.)</label>
+                        <label class="small font-weight-bold">Opening Balance ($)</label>
                         <input type="number" step="0.01" name="opening_balance" class="form-control"
                                value="<?= htmlspecialchars($_POST['opening_balance'] ?? '0') ?>">
                         <small class="text-muted">Use positive for receivable, negative for payable</small>

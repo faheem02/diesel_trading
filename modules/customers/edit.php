@@ -98,21 +98,21 @@ include '../../includes/header.php';
             <div class="row">
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Opening Balance (Rs.)</label>
+                        <label class="small font-weight-bold">Opening Balance ($)</label>
                         <input type="text" class="form-control bg-light" readonly
                                value="<?= number_format($customer['opening_balance'], 2) ?>">
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Current Balance (Rs.)</label>
+                        <label class="small font-weight-bold">Current Balance ($)</label>
                         <input type="text" class="form-control bg-light" readonly
                                value="<?= number_format($customer['balance'], 2) ?>">
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Credit Limit (Rs.)</label>
+                        <label class="small font-weight-bold">Credit Limit ($)</label>
                         <input type="number" step="0.01" min="0" name="credit_limit" class="form-control"
                                value="<?= htmlspecialchars($_POST['credit_limit'] ?? $customer['credit_limit'] ?? '0') ?>">
                     </div>

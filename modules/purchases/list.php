@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 $active_page = 'purchase_list';
 require_once '../../config/db.php';
@@ -173,7 +173,7 @@ include '../../includes/header.php';
                                     <span class="badge badge-<?= $badge ?>"><?= htmlspecialchars($row['payment_status']) ?></span>
                                     <small class="d-block text-muted">Paid: <?= number_format($paid, 0) ?>/<?= number_format($total, 0) ?></small>
                                     <?php if ($remaining > 0): ?>
-                                        <small class="d-block text-danger font-weight-bold">Due: Rs. <?= number_format($remaining, 0) ?></small>
+                                        <small class="d-block text-danger font-weight-bold">Due: $ <?= number_format($remaining, 0) ?></small>
                                     <?php endif; ?>
                                     <?php if ($row['return_count'] > 0): ?>
                                         <span class="badge badge-warning mt-1 d-inline-block" title="Returns">
@@ -238,12 +238,12 @@ while ($row = $result->fetch_assoc()):
                             <th>Driver Name</th>
                             <th>Driver Mobile</th>
                             <th>Qty (Ton)</th>
-                            <th>Waste (Kg)</th>
-                            <th>Net (Ton)</th>
+                            <!-- <th>Waste (Kg)</th> -->
+                            <!-- <th>Net (Ton)</th> -->
                             <th>Rate</th>
                             <th>Total</th>
                             <th>Freight</th>
-                            <th>Other</th>
+                            <!-- <th>Other</th> -->
                             <th>Net Amount</th>
                         </tr>
                     </thead>
@@ -257,12 +257,11 @@ while ($row = $result->fetch_assoc()):
                                 <td><?= htmlspecialchars($t['driver_name']) ?></td>
                                 <td><?= htmlspecialchars($t['driver_mobile']) ?></td>
                                 <td><?= number_format($t['diesel_quantity'], 3) ?></td>
-                                <td><?= number_format($t['waste_kg'], 3) ?></td>
-                                <td><?= number_format($t['net_quantity'], 3) ?></td>
+                               
                                 <td><?= number_format($t['rate_per_ton'], 2) ?></td>
                                 <td><?= number_format($t['total_amount'], 2) ?></td>
                                 <td><?= number_format($t['freight_charges'], 2) ?></td>
-                                <td><?= number_format($t['other_charges'], 2) ?></td>
+                               
                                 <td class="font-weight-bold"><?= number_format($t['net_amount'], 2) ?></td>
                             </tr>
                         <?php endwhile; endif; ?>

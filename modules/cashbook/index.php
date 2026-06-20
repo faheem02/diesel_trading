@@ -168,19 +168,19 @@ body { background: #f5f6fa; font-size: 14px; }
             <div class="col-md-4">
                 <div class="summary-card card-inflow">
                     <div class="s-label"><i class="bi bi-arrow-down-left me-1"></i>Total Inflow</div>
-                    <p class="s-value" id="sum-in">PKR 0</p>
+                    <p class="s-value" id="sum-in">$ 0</p>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="summary-card card-outflow">
                     <div class="s-label"><i class="bi bi-arrow-up-right me-1"></i>Total Outflow</div>
-                    <p class="s-value" id="sum-out">PKR 0</p>
+                    <p class="s-value" id="sum-out">$ 0</p>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="summary-card card-balance">
                     <div class="s-label"><i class="bi bi-wallet me-1"></i>Balance</div>
-                    <p class="s-value" id="sum-bal">PKR 0</p>
+                    <p class="s-value" id="sum-bal">$ 0</p>
                 </div>
             </div>
         </div>
@@ -290,7 +290,7 @@ body { background: #f5f6fa; font-size: 14px; }
                 </select>
             </div>
             <div class="col-6">
-                <label class="form-label small fw-semibold">Amount (PKR) <span class="text-danger">*</span></label>
+                <label class="form-label small fw-semibold">Amount ($) <span class="text-danger">*</span></label>
                 <input type="number" class="form-control form-control-sm" id="m-amount" placeholder="0.00" min="0.01" step="0.01">
             </div>
         </div>
@@ -399,7 +399,7 @@ function loadData() {
 // Render helpers
 // ════════════════════════════════════════════════
 function fmt(n) {
-    return 'PKR ' + parseFloat(n || 0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '$ ' + parseFloat(n || 0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function renderSummary(s) {

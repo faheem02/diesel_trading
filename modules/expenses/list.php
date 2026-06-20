@@ -67,7 +67,7 @@ include '../../includes/header.php';
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
                     <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total All</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($grand_total, 2) ?></div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($grand_total, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-300"></i></div>
             </div></div>
@@ -78,7 +78,7 @@ include '../../includes/header.php';
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
                     <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Purchase Related</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($cat_totals['Purchase Related'] ?? 0, 2) ?></div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($cat_totals['Purchase Related'] ?? 0, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-truck fa-2x text-gray-300"></i></div>
             </div></div>
@@ -89,7 +89,7 @@ include '../../includes/header.php';
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
                     <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Office Expenses</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($cat_totals['Office'] ?? 0, 2) ?></div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($cat_totals['Office'] ?? 0, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-building fa-2x text-gray-300"></i></div>
             </div></div>
@@ -100,7 +100,7 @@ include '../../includes/header.php';
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
                     <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Vehicle Expenses</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($cat_totals['Vehicle'] ?? 0, 2) ?></div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($cat_totals['Vehicle'] ?? 0, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-car fa-2x text-gray-300"></i></div>
             </div></div>
@@ -170,7 +170,7 @@ include '../../includes/header.php';
                         <th>Date</th>
                         <th>Category</th>
                         <th>Subcategory</th>
-                        <th>Amount (Rs.)</th>
+                        <th>Amount ($)</th>
                         <th>Description</th>
                         <th>Action</th>
                     </tr>

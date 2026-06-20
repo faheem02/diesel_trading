@@ -161,7 +161,7 @@ include '../../includes/header.php';
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Received</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($total_in, 2) ?></div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($total_in, 2) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-arrow-circle-down fa-2x text-success"></i></div>
                 </div>
@@ -174,7 +174,7 @@ include '../../includes/header.php';
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Paid Out</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($total_out, 2) ?></div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($total_out, 2) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-arrow-circle-up fa-2x text-danger"></i></div>
                 </div>
@@ -189,7 +189,7 @@ include '../../includes/header.php';
                         <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Net Flow</div>
                         <?php $net = $total_in - $total_out; ?>
                         <div class="h5 mb-0 font-weight-bold <?= $net >= 0 ? 'text-success' : 'text-danger' ?>">
-                            Rs. <?= number_format($net, 2) ?>
+                            $ <?= number_format($net, 2) ?>
                         </div>
                     </div>
                     <div class="col-auto"><i class="fas fa-balance-scale fa-2x text-gray-300"></i></div>
@@ -204,7 +204,7 @@ include '../../includes/header.php';
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Account Balance</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($selected_account['current_balance'], 2) ?></div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($selected_account['current_balance'], 2) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-piggy-bank fa-2x text-gray-300"></i></div>
                 </div>
@@ -274,8 +274,8 @@ include '../../includes/header.php';
                         <th>Party</th>
                         <th>Type</th>
                         <th>Method</th>
-                        <th class="text-right">Credit / In (Rs.)</th>
-                        <th class="text-right">Debit / Out (Rs.)</th>
+                        <th class="text-right">Credit / In ($)</th>
+                        <th class="text-right">Debit / Out ($)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -311,8 +311,8 @@ include '../../includes/header.php';
                 <tfoot class="table-active">
                     <tr>
                         <th colspan="5" class="text-right">Totals:</th>
-                        <th class="text-right text-success">Rs. <?= number_format($total_in, 2) ?></th>
-                        <th class="text-right text-danger">Rs. <?= number_format($total_out, 2) ?></th>
+                        <th class="text-right text-success">$ <?= number_format($total_in, 2) ?></th>
+                        <th class="text-right text-danger">$ <?= number_format($total_out, 2) ?></th>
                     </tr>
                 </tfoot>
                 <?php endif; ?>
@@ -351,7 +351,7 @@ include '../../includes/header.php';
                     <input type="text" name="account_number" class="form-control" placeholder="e.g. 1234567890 / IBAN">
                 </div>
                 <div class="form-group">
-                    <label class="small font-weight-bold">Opening Balance (Rs.)</label>
+                    <label class="small font-weight-bold">Opening Balance ($)</label>
                     <input type="number" step="0.01" min="0" name="opening_balance" class="form-control" value="0">
                 </div>
             </div>

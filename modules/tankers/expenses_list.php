@@ -63,7 +63,7 @@ include '../../includes/header.php';
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Expenses</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">Rs. <?= number_format($grand_total, 2) ?></div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">$ <?= number_format($grand_total, 2) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-300"></i></div>
                 </div>
@@ -139,7 +139,7 @@ include '../../includes/header.php';
                         <th>Date</th>
                         <th>Tanker</th>
                         <th>Expense Type</th>
-                        <th>Amount (Rs.)</th>
+                        <th>Amount ($)</th>
                         <th>Description</th>
                         <th>Action</th>
                     </tr>

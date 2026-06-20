@@ -39,10 +39,11 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 $summary = $conn->query("
-    SELECT t.id, t.tank_name, t.capacity, t.current_stock,
-        COALESCE(SUM(CASE WHEN sl.movement_type = 'IN' THEN sl.quantity ELSE 0 END), 0) AS total_in,
+    SELECT t.id, t.tank_name, t.capacity, t.opening_stock, t.current_stock,
+        COALESCE(SUM(CASE WHEN sl.movement_type = 'IN'  AND sl.reference_type != 'opening_balance' THEN sl.quantity ELSE 0 END), 0) AS total_in,
         COALESCE(SUM(CASE WHEN sl.movement_type = 'OUT' THEN sl.quantity ELSE 0 END), 0) AS total_out,
-        COALESCE(SUM(CASE WHEN sl.movement_type = 'ADJUSTMENT' THEN sl.quantity ELSE 0 END), 0) AS total_adjustments
+        COALESCE(SUM(CASE WHEN sl.movement_type = 'ADJUSTMENT' THEN sl.quantity ELSE 0 END), 0) AS total_adj_removed,
+        COALESCE(SUM(CASE WHEN sl.movement_type = 'ADJUSTMENT' AND sl.balance_after > sl.balance_before THEN sl.quantity ELSE 0 END), 0) AS total_adj_added
     FROM tanks t
     LEFT JOIN stock_ledger sl ON t.id = sl.tank_id
     GROUP BY t.id
@@ -70,25 +71,31 @@ include '../../../includes/header.php';
                 <thead class="thead-dark">
                     <tr>
                         <th>Tank Name</th>
-                        <th>Capacity (Tons)</th>
-                        <th>Total Stock In</th>
-                        <th>Total Stock Out</th>
-                        <th>Total Adjustments</th>
+                        <th>Location / Capacity</th>
+                        <th>Opening Stock</th>
+                        <th>Stock In (Purchases)</th>
+                        <th>Stock Out (Sales)</th>
+                        <th>Adjustments</th>
                         <th>Current Stock (Tons)</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ($summary->num_rows === 0): ?>
-                        <tr><td colspan="6" class="text-center text-muted py-4">No tanks found.</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-4">No tanks found.</td></tr>
                     <?php else:
-                        while ($row = $summary->fetch_assoc()): ?>
+                        while ($row = $summary->fetch_assoc()):
+                            $net_adj = $row['total_adj_added'] - $row['total_adj_removed'];
+                        ?>
                         <tr>
                             <td class="font-weight-bold"><?= htmlspecialchars($row['tank_name']) ?></td>
-                            <td><?= number_format($row['capacity'], 3) ?></td>
-                            <td class="text-success font-weight-bold"><?= number_format($row['total_in'], 3) ?></td>
-                            <td class="text-danger font-weight-bold"><?= number_format($row['total_out'], 3) ?></td>
-                            <td class="text-warning font-weight-bold"><?= number_format($row['total_adjustments'], 3) ?></td>
-                            <td class="font-weight-bold"><?= number_format($row['current_stock'], 3) ?></td>
+                            <td><?= number_format($row['capacity'], 3) ?> Tons</td>
+                            <td class="text-info font-weight-bold"><?= number_format($row['opening_stock'], 3) ?></td>
+                            <td class="text-success font-weight-bold">+ <?= number_format($row['total_in'], 3) ?></td>
+                            <td class="text-danger font-weight-bold">− <?= number_format($row['total_out'], 3) ?></td>
+                            <td class="<?= $net_adj >= 0 ? 'text-success' : 'text-warning' ?> font-weight-bold">
+                                <?= $net_adj >= 0 ? '+' : '' ?><?= number_format($net_adj, 3) ?>
+                            </td>
+                            <td class="font-weight-bold text-primary"><?= number_format($row['current_stock'], 3) ?></td>
                         </tr>
                     <?php endwhile; endif; ?>
                 </tbody>

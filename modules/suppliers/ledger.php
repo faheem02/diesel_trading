@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 $active_page = 'supplier_ledger';
 require_once '../../config/db.php';
@@ -44,9 +44,14 @@ include '../../includes/header.php';
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-book mr-1"></i> Supplier Ledger</h1>
-    <a href="list.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
-        <i class="fas fa-arrow-left"></i> Back
-    </a>
+    <div>
+        <button onclick="window.print()" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm mr-1">
+            <i class="fas fa-print"></i> Print
+        </button>
+        <a href="list.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
 </div>
 
 <?php if (!$sup): ?>
@@ -74,12 +79,11 @@ include '../../includes/header.php';
 <div class="card shadow mb-4">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">
-            <i class="fas fa-truck mr-1"></i> <?= htmlspecialchars($sup['company_name']) ?>
-            <span class="ml-3 badge badge-<?= $sup['balance'] >= 0 ? 'success' : 'danger' ?> font-weight-bold" style="font-size:0.9rem">
-                Balance: <?= number_format($sup['balance'], 2) ?>
-            </span>
-            <button onclick="window.print()" class="btn btn-sm btn-dark ml-2"><i class="fas fa-print"></i> Print</button>
-        </h6>
+    <i class="fas fa-truck mr-1"></i> <?= htmlspecialchars($sup['company_name']) ?>
+    <span class="ml-3 badge badge-<?= $sup['balance'] >= 0 ? 'success' : 'danger' ?> font-weight-bold" style="font-size:0.9rem">
+        Balance: <?= number_format($sup['balance'], 2) ?>
+    </span>
+</h6>
     </div>
     <div class="card-body">
         <form method="GET" class="form-inline mb-3">
@@ -105,9 +109,9 @@ include '../../includes/header.php';
                         <th>Date</th>
                         <th>Description</th>
                         <th>Ref</th>
-                        <th class="text-right">Credit (Rs.)</th>
-                        <th class="text-right">Debit (Rs.)</th>
-                        <th class="text-right">Balance (Rs.)</th>
+                        <th class="text-right">Debit ($)</th>
+                        <th class="text-right">Credit ($)</th>
+                        <th class="text-right">Balance ($)</th>
                     </tr>
                 </thead>
                 <tbody>

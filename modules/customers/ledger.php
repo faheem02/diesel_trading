@@ -80,9 +80,9 @@ include '../../includes/header.php';
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">
             <i class="fas fa-user mr-1"></i> <?= htmlspecialchars($sup['customer_name']) ?>
-            <span class="badge badge-<?= $sup['balance'] >= 0 ? 'success' : 'danger' ?> ml-2">Bal: Rs. <?= number_format($sup['balance'], 2) ?></span>
+            <span class="badge badge-<?= $sup['balance'] >= 0 ? 'success' : 'danger' ?> ml-2">Bal: $ <?= number_format($sup['balance'], 2) ?></span>
             <?php if ($sup['credit_limit'] > 0): ?>
-                <small class="text-muted ml-2">Credit Limit: Rs. <?= number_format($sup['credit_limit'], 2) ?></small>
+                <small class="text-muted ml-2">Credit Limit: $ <?= number_format($sup['credit_limit'], 2) ?></small>
             <?php endif; ?>
         </h6>
     </div>
@@ -108,9 +108,9 @@ include '../../includes/header.php';
                         <th>Date</th>
                         <th>Description</th>
                         <th>Ref</th>
-                        <th>Debit (Rs.)</th>
-                        <th>Credit (Rs.)</th>
-                        <th>Balance (Rs.)</th>
+                        <th>Debit ($)</th>
+                        <th>Credit ($)</th>
+                        <th>Balance ($)</th>
                     </tr>
                 </thead>
                 <tbody>

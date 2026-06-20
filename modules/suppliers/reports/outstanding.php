@@ -35,9 +35,9 @@ include '../../../includes/header.php';
                         <th>Company Name</th>
                         <th>Contact Person</th>
                         <th>Phone</th>
-                        <th class="text-right">Total Debit (Rs.)</th>
-                        <th class="text-right">Total Credit (Rs.)</th>
-                        <th class="text-right">Outstanding (Rs.)</th>
+                        <th class="text-right">Total Debit ($)</th>
+                        <th class="text-right">Total Credit ($)</th>
+                        <th class="text-right">Outstanding ($)</th>
                         <th>Last Transaction</th>
                     </tr>
                 </thead>

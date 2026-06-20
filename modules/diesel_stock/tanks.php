@@ -11,18 +11,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $tank_name = trim($_POST['tank_name']);
         $capacity  = floatval($_POST['capacity'] ?? 0);
         $location  = trim($_POST['location'] ?? '');
+        $opening_stock = floatval($_POST['opening_stock'] ?? 0);
 
         if (empty($tank_name)) {
             $error = "Tank name is required.";
         } else {
-            $stmt = $conn->prepare("INSERT INTO tanks (tank_name, capacity, location) VALUES (?, ?, ?)");
-            $stmt->bind_param("sds", $tank_name, $capacity, $location);
-            if ($stmt->execute()) {
-                $success = "Tank added successfully!";
-            } else {
-                $error = "Database error: " . $stmt->error;
+            $conn->begin_transaction();
+            try {
+                $stmt = $conn->prepare("INSERT INTO tanks (tank_name, capacity, opening_stock, location, current_stock) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("sdssd", $tank_name, $capacity, $opening_stock, $location, $opening_stock);
+                $stmt->execute();
+                $tank_id = $conn->insert_id;
+                $stmt->close();
+
+                // Record opening stock in stock_ledger so all reports are accurate
+                if ($opening_stock > 0) {
+                    $today = date('Y-m-d');
+                    $desc  = "Opening stock for $tank_name";
+                    $sl = $conn->prepare("INSERT INTO stock_ledger (tank_id, transaction_date, movement_type, reference_type, quantity, balance_before, balance_after, description) VALUES (?, ?, 'IN', 'opening_balance', ?, 0, ?, ?)");
+                    $sl->bind_param("isdds", $tank_id, $today, $opening_stock, $opening_stock, $desc);
+                    $sl->execute();
+                    $sl->close();
+                }
+
+                $conn->commit();
+                $success = "Tank added successfully with opening stock: " . number_format($opening_stock, 3) . " tons!";
+            } catch (Exception $e) {
+                $conn->rollback();
+                $error = "Database error: " . $e->getMessage();
             }
-            $stmt->close();
         }
     } elseif ($_POST['action'] === 'edit') {
         $id        = intval($_POST['id']);
@@ -99,6 +116,7 @@ include '../../includes/header.php';
                         <th>#</th>
                         <th>Tank Name</th>
                         <th>Capacity (Tons)</th>
+                        <th>Opening Stock (Tons)</th>
                         <th>Location</th>
                         <th>Current Stock (Tons)</th>
                         <th>Stock %</th>
@@ -107,7 +125,7 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows === 0): ?>
-                        <tr><td colspan="7" class="text-center text-muted py-4">No tanks found. Add one to get started.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">No tanks found. Add one to get started.</td></tr>
                     <?php else:
                         $i = 1;
                         while ($row = $result->fetch_assoc()):
@@ -118,6 +136,7 @@ include '../../includes/header.php';
                             <td><?= $i++ ?></td>
                             <td class="font-weight-bold"><?= htmlspecialchars($row['tank_name']) ?></td>
                             <td><?= number_format($row['capacity'], 3) ?></td>
+                            <td><?= number_format($row['opening_stock'] ?? 0, 3) ?></td>
                             <td><?= htmlspecialchars($row['location'] ?: '-') ?></td>
                             <td class="font-weight-bold <?= $row['current_stock'] > 0 ? 'text-success' : 'text-muted' ?>">
                                 <?= number_format($row['current_stock'], 3) ?>
@@ -135,6 +154,7 @@ include '../../includes/header.php';
                                     data-id="<?= $row['id'] ?>"
                                     data-name="<?= htmlspecialchars($row['tank_name']) ?>"
                                     data-capacity="<?= $row['capacity'] ?>"
+                                    data-opening-stock="<?= $row['opening_stock'] ?? 0 ?>"
                                     data-location="<?= htmlspecialchars($row['location'] ?? '') ?>">
                                     <i class="fas fa-pen"></i>
                                 </button>
@@ -150,6 +170,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- Add Tank Modal -->
 <div class="modal fade" id="addTankModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -169,6 +190,11 @@ include '../../includes/header.php';
                         <input type="number" step="0.001" min="0" name="capacity" class="form-control" value="0">
                     </div>
                     <div class="form-group">
+                        <label class="small font-weight-bold">Opening Stock (Tons)</label>
+                        <input type="number" step="0.001" min="0" name="opening_stock" class="form-control" value="0" placeholder="Enter initial stock">
+                        <small class="text-muted">Initial stock balance for this tank</small>
+                    </div>
+                    <div class="form-group">
                         <label class="small font-weight-bold">Location</label>
                         <input type="text" name="location" class="form-control" placeholder="e.g. Main Yard">
                     </div>
@@ -182,6 +208,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- Edit Tank Modal -->
 <div class="modal fade" id="editTankModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">

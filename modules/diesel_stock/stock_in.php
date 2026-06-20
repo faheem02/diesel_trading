@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($supplier_name) $desc_parts[] = "Supplier: $supplier_name";
             if ($invoice_ref) $desc_parts[] = "Invoice: $invoice_ref";
             if ($notes) $desc_parts[] = $notes;
-            $description = "Stock In" . ($desc_parts ? " - " . implode(", ", $desc_parts) : "") . ($total_amount > 0 ? " (Paid Rs. ".number_format($total_amount,0).")" : "");
+            $description = "Stock In" . ($desc_parts ? " - " . implode(", ", $desc_parts) : "") . ($total_amount > 0 ? " (Paid $ ".number_format($total_amount,0).")" : "");
 
             $conn->begin_transaction();
             try {
@@ -140,7 +140,7 @@ include '../../includes/header.php';
             <div class="row">
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Rate per Ton (Rs.)</label>
+                        <label class="small font-weight-bold">Rate per Ton ($)</label>
                         <input type="number" step="0.01" min="0" name="rate" id="rate" class="form-control"
                                value="<?= htmlspecialchars($_POST['rate'] ?? '') ?>">
                         <small class="text-muted">Enter to record payment in cash book.</small>
@@ -148,7 +148,7 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Total Amount (Rs.)</label>
+                        <label class="small font-weight-bold">Total Amount ($)</label>
                         <input type="text" id="total_amount" class="form-control bg-light" readonly value="0.00">
                     </div>
                 </div>

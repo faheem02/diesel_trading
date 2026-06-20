@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->commit();
             $label   = $direction === 'to_supplier' ? 'paid to' : 'received from';
-            $success = "Payment of Rs. " . number_format($amount, 2) . " $label supplier recorded successfully!";
+            $success = "Payment of $ " . number_format($amount, 2) . " $label supplier recorded successfully!";
             $_POST   = [];
         } catch (Exception $e) {
             $conn->rollback();
@@ -150,7 +150,7 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Amount (Rs.) <span class="text-danger">*</span></label>
+                        <label class="small font-weight-bold">Amount ($) <span class="text-danger">*</span></label>
                         <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required
                                value="<?= htmlspecialchars($_POST['amount'] ?? '') ?>">
                     </div>

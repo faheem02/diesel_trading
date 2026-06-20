@@ -46,7 +46,7 @@ include '../../includes/header.php';
             <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-danger">Debits</h6></div>
             <div class="card-body p-0">
                 <table class="table table-bordered mb-0">
-                    <thead class="thead-dark"><tr><th>Account</th><th class="text-right">Amount (Rs.)</th></tr></thead>
+                    <thead class="thead-dark"><tr><th>Account</th><th class="text-right">Amount ($)</th></tr></thead>
                     <tbody>
                         <tr><td>Purchases (Diesel Cost)</td><td class="text-right"><?= number_format($purchases_total, 2) ?></td></tr>
                         <tr><td>Expenses</td><td class="text-right"><?= number_format($total_expenses, 2) ?></td></tr>
@@ -68,7 +68,7 @@ include '../../includes/header.php';
             <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-success">Credits</h6></div>
             <div class="card-body p-0">
                 <table class="table table-bordered mb-0">
-                    <thead class="thead-dark"><tr><th>Account</th><th class="text-right">Amount (Rs.)</th></tr></thead>
+                    <thead class="thead-dark"><tr><th>Account</th><th class="text-right">Amount ($)</th></tr></thead>
                     <tbody>
                         <tr><td>Sales Revenue</td><td class="text-right"><?= number_format($sales_total, 2) ?></td></tr>
                         <tr><td>Supplier Credits (Purchases on Credit)</td><td class="text-right"><?= number_format($supplier_bal['total_credit'], 2) ?></td></tr>
@@ -85,7 +85,7 @@ include '../../includes/header.php';
         <?php if (abs($diff) > 0.01): ?>
         <div class="alert alert-warning">
             <i class="fas fa-exclamation-triangle mr-1"></i>
-            Difference (Debit - Credit): <strong>Rs. <?= number_format($diff, 2) ?></strong>
+            Difference (Debit - Credit): <strong>$ <?= number_format($diff, 2) ?></strong>
             <?php if ($diff > 0): ?><br><small>Net income adds to credits to balance.</small><?php endif; ?>
         </div>
         <?php else: ?>

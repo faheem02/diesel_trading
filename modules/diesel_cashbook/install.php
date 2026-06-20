@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS transactions (
 
 INSERT INTO transactions (book, type, txn_date, description, category, amount, reference, notes) VALUES
 ('cash','in', '2025-06-01','Opening balance — cash on hand','Customer receipt',150000.00,'OB-001',''),
-('cash','out','2025-06-03','Diesel purchase — Al-Hamra Depot','Diesel purchase',85000.00,'VCH-002','500 litres @ PKR 170'),
-('cash','in', '2025-06-05','Diesel sale — Khan Transport','Diesel sale',122500.00,'INV-001','700 litres @ PKR 175'),
+('cash','out','2025-06-03','Diesel purchase — Al-Hamra Depot','Diesel purchase',85000.00,'VCH-002','500 litres @ $ 170'),
+('cash','in', '2025-06-05','Diesel sale — Khan Transport','Diesel sale',122500.00,'INV-001','700 litres @ $ 175'),
 ('cash','out','2025-06-07','Driver salary — June','Salary',35000.00,'SAL-001',''),
 ('bank','in', '2025-06-01','Opening bank balance','Customer receipt',500000.00,'OB-B01','MCB current account'),
 ('bank','out','2025-06-04','Supplier payment — Attock Petroleum','Supplier payment',250000.00,'TRF-001','Invoice #AP-2245'),

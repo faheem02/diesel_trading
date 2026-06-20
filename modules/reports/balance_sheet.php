@@ -79,7 +79,7 @@ include '../../includes/header.php';
                     <tr><td class="pl-4">Accounts Receivable (Customers)</td><td class="text-right font-weight-bold"><?= number_format($customer_receivables, 2) ?></td></tr>
                     <tr><td class="pl-4">Due from Suppliers</td><td class="text-right font-weight-bold"><?= number_format($supplier_receivables, 2) ?></td></tr>
                     <tr class="bg-light"><th colspan="2" class="text-primary">Inventory</th></tr>
-                    <tr><td class="pl-4">Diesel Stock (<?= number_format($total_stock, 3) ?> Tons @ Avg Rs. <?= number_format($avg_purchase_rate, 2) ?>/ton)</td><td class="text-right font-weight-bold"><?= number_format($stock_value, 2) ?></td></tr>
+                    <tr><td class="pl-4">Diesel Stock (<?= number_format($total_stock, 3) ?> Tons @ Avg $ <?= number_format($avg_purchase_rate, 2) ?>/ton)</td><td class="text-right font-weight-bold"><?= number_format($stock_value, 2) ?></td></tr>
                     <tr class="table-success"><th>Total Assets</th><th class="text-right"><?= number_format($total_assets, 2) ?></th></tr>
                 </table>
             </div>
@@ -107,9 +107,9 @@ include '../../includes/header.php';
         $bal_check = abs(($total_liabilities + $equity) - $total_assets);
         ?>
         <?php if ($bal_check < 1): ?>
-        <div class="alert alert-success"><i class="fas fa-check-circle mr-1"></i> <strong>Balanced</strong> — Assets = Liabilities + Equity (Rs. <?= number_format($total_assets, 2) ?>)</div>
+        <div class="alert alert-success"><i class="fas fa-check-circle mr-1"></i> <strong>Balanced</strong> — Assets = Liabilities + Equity ($ <?= number_format($total_assets, 2) ?>)</div>
         <?php else: ?>
-        <div class="alert alert-warning"><i class="fas fa-exclamation-triangle mr-1"></i> Difference of Rs. <?= number_format($bal_check, 2) ?></div>
+        <div class="alert alert-warning"><i class="fas fa-exclamation-triangle mr-1"></i> Difference of $ <?= number_format($bal_check, 2) ?></div>
         <?php endif; ?>
     </div>
 </div>

@@ -96,7 +96,7 @@ include '../../includes/header.php';
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Opening Balance (Rs.)</label>
+                        <label class="small font-weight-bold">Opening Balance ($)</label>
                         <input type="number" step="0.01" name="opening_balance" class="form-control"
                                value="<?= htmlspecialchars($_POST['opening_balance'] ?? '0') ?>">
                         <small class="text-muted">Positive = customer owes us, Negative = we owe customer</small>
@@ -104,7 +104,7 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Credit Limit (Rs.)</label>
+                        <label class="small font-weight-bold">Credit Limit ($)</label>
                         <input type="number" step="0.01" min="0" name="credit_limit" class="form-control"
                                value="<?= htmlspecialchars($_POST['credit_limit'] ?? '0') ?>">
                         <small class="text-muted">Maximum credit allowed for this customer (0 = no limit)</small>

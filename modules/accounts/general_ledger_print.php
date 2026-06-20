@@ -291,15 +291,15 @@ tfoot tr td {
 <!-- Summary -->
 <div class="summary-row">
     <div class="summary-box debit">
-        <div class="label">Total Debit (Rs.)</div>
+        <div class="label">Total Debit ($)</div>
         <div class="value"><?= number_format($total_debit, 2) ?></div>
     </div>
     <div class="summary-box credit">
-        <div class="label">Total Credit (Rs.)</div>
+        <div class="label">Total Credit ($)</div>
         <div class="value"><?= number_format($total_credit, 2) ?></div>
     </div>
     <div class="summary-box balance">
-        <div class="label">Net Balance (Rs.)</div>
+        <div class="label">Net Balance ($)</div>
         <div class="value" style="color:<?= $net_balance >= 0 ? '#1a56db' : '#c0392b' ?>">
             <?= number_format(abs($net_balance), 2) ?> <?= $net_balance >= 0 ? 'Dr' : 'Cr' ?>
         </div>
@@ -324,9 +324,9 @@ tfoot tr td {
             <th>Party</th>
             <th>Type</th>
             <th>Account</th>
-            <th class="text-right">Debit (Rs.)</th>
-            <th class="text-right">Credit (Rs.)</th>
-            <th class="text-right">Balance (Rs.)</th>
+            <th class="text-right">Debit ($)</th>
+            <th class="text-right">Credit ($)</th>
+            <th class="text-right">Balance ($)</th>
         </tr>
     </thead>
     <tbody>

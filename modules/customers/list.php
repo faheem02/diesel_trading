@@ -97,7 +97,7 @@ include '../../includes/header.php';
                         <th>Address</th>
                         <th>Opening Balance</th>
                         <th>Credit Limit</th>
-                        <th>Balance (Rs.)</th>
+                        <th>Balance ($)</th>
                         <th>Actions</th>
                     </tr>
                 </thead>

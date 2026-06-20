@@ -23,29 +23,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $tankers = $_POST['tankers'];
         $total_qty = 0;
-        $total_waste = 0;
-        $total_net_qty = 0;
         $total_amount = 0;
         $total_freight = 0;
-        $total_other = 0;
         $total_net = 0;
 
         foreach ($tankers as $t) {
             $qty = floatval($t['diesel_quantity'] ?? 0);
             $rate = floatval($t['rate_per_ton'] ?? 0);
             $freight = floatval($t['freight_charges'] ?? 0);
-            $other = floatval($t['other_charges'] ?? 0);
             $t_total = $qty * $rate;
-            $t_net = $t_total + $freight + $other;
-            $waste = ($qty / 35) * 50;
-            $net_qty = $qty - ($waste / 1000);
+            $t_net = $t_total + $freight;
 
             $total_qty += $qty;
-            $total_waste += $waste;
-            $total_net_qty += $net_qty;
             $total_amount += $t_total;
             $total_freight += $freight;
-            $total_other += $other;
             $total_net += $t_net;
         }
 
@@ -54,24 +45,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($error)) {
             $conn->begin_transaction();
             try {
+                // Fixed: Removed waste_kg and net_quantity from the query
                 $stmt = $conn->prepare("INSERT INTO purchases 
-                    (invoice_no, purchase_date, supplier_id, diesel_quantity, waste_kg, net_quantity, rate_per_ton,
-                     total_amount, freight_charges, other_charges, net_purchase_cost,
+                    (invoice_no, purchase_date, supplier_id, diesel_quantity, rate_per_ton,
+                     total_amount, freight_charges, net_purchase_cost,
                      payment_status, paid_amount) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
+                // Fixed: Only 10 parameters (ssiddddddd) - 2 strings + 8 decimals
                 $stmt->bind_param(
-                    "ssiddddddddds",
+                    "ssiddddddi",
                     $invoice_no,
                     $purchase_date,
                     $supplier_id,
                     $total_qty,
-                    $total_waste,
-                    $total_net_qty,
                     $weighted_rate,
                     $total_amount,
                     $total_freight,
-                    $total_other,
                     $total_net,
                     $payment_status,
                     $paid_amount
@@ -83,9 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $tanker_stmt = $conn->prepare("INSERT INTO purchase_tankers 
                     (purchase_id, tank_id, tanker_number, driver_name, driver_mobile,
-                     diesel_quantity, waste_kg, net_quantity, rate_per_ton, total_amount,
-                     freight_charges, other_charges, net_amount)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                     diesel_quantity, rate_per_ton, total_amount,
+                     freight_charges, net_amount)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
                 foreach ($tankers as $t) {
                     $tank_id     = intval($t['tank_id'] ?? 0);
@@ -95,16 +85,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $qty         = floatval($t['diesel_quantity'] ?? 0);
                     $rate        = floatval($t['rate_per_ton'] ?? 0);
                     $freight     = floatval($t['freight_charges'] ?? 0);
-                    $other       = floatval($t['other_charges'] ?? 0);
                     $t_total     = $qty * $rate;
-                    $t_net       = $t_total + $freight + $other;
-                    $waste       = ($qty / 35) * 50;
-                    $net_qty     = $qty - ($waste / 1000);
+                    $t_net       = $t_total + $freight;
 
                     $tank_id_val = ($tank_id > 0) ? $tank_id : null;
-                    $tanker_stmt->bind_param("iisssdddddddd",
+                    $tanker_stmt->bind_param("iisssddddd", 
                         $purchase_id, $tank_id_val, $tanker_no, $driver_name, $driver_mob,
-                        $qty, $waste, $net_qty, $rate, $t_total, $freight, $other, $t_net
+                        $qty, $rate, $t_total, $freight, $t_net
                     );
                     $tanker_stmt->execute();
 
@@ -127,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $tanker_stmt->close();
 
-                $ledger_desc = "Purchase Invoice #$invoice_no" . ($payment_status === 'Paid' ? " (Paid Rs. " . number_format($paid_amount, 0) . ")" : "");
+                $ledger_desc = "Purchase Invoice #$invoice_no" . ($payment_status === 'Paid' ? " (Paid $ " . number_format($paid_amount, 0) . ")" : "");
                 $ledger_debit = $total_net;
                 if ($payment_status === 'Paid' || $payment_status === 'Partial Paid') {
                     $paid = min($paid_amount, $total_net);
@@ -204,7 +191,7 @@ include '../../includes/header.php';
     </div>
 <?php endif; ?>
 
-    <form method="POST" id="purchaseForm">
+<form method="POST" id="purchaseForm">
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-file-invoice mr-1"></i> Invoice Information</h6>
@@ -311,12 +298,9 @@ include '../../includes/header.php';
                             <th style="min-width:120px">Driver Name</th>
                             <th style="min-width:110px">Driver Mobile</th>
                             <th style="min-width:100px">Qty (Ton)</th>
-                            <th style="min-width:90px">Waste (Kg)</th>
-                            <th style="min-width:100px">Net Qty (Ton)</th>
                             <th style="min-width:90px">Rate/Ton</th>
                             <th style="min-width:100px">Total</th>
                             <th style="min-width:90px">Freight</th>
-                            <th style="min-width:90px">Other</th>
                             <th style="min-width:100px">Net Amount</th>
                             <th style="width:50px">Action</th>
                         </tr>
@@ -344,12 +328,6 @@ include '../../includes/header.php';
                                 <input type="number" step="0.001" min="0" name="tankers[0][diesel_quantity]" class="form-control form-control-sm tanker-qty" required>
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm tanker-waste bg-light" readonly value="0.000">
-                            </td>
-                            <td>
-                                <input type="text" class="form-control form-control-sm tanker-net-qty bg-light" readonly value="0.000">
-                            </td>
-                            <td>
                                 <input type="number" step="0.01" min="0" name="tankers[0][rate_per_ton]" class="form-control form-control-sm tanker-rate" required>
                             </td>
                             <td>
@@ -357,9 +335,6 @@ include '../../includes/header.php';
                             </td>
                             <td>
                                 <input type="number" step="0.01" min="0" name="tankers[0][freight_charges]" class="form-control form-control-sm tanker-freight" value="0">
-                            </td>
-                            <td>
-                                <input type="number" step="0.01" min="0" name="tankers[0][other_charges]" class="form-control form-control-sm tanker-other" value="0">
                             </td>
                             <td>
                                 <input type="text" class="form-control form-control-sm tanker-net font-weight-bold bg-light" readonly value="0.00">
@@ -375,12 +350,9 @@ include '../../includes/header.php';
                         <tr>
                             <th colspan="4" class="text-right">Totals:</th>
                             <th><span id="totalQty">0.000</span></th>
-                            <th><span id="totalWaste">0.000</span></th>
-                            <th><span id="totalNetQty">0.000</span></th>
                             <th></th>
                             <th><span id="grandTotal">0.00</span></th>
                             <th><span id="grandFreight">0.00</span></th>
-                            <th><span id="grandOther">0.00</span></th>
                             <th><span id="grandNet">0.00</span></th>
                             <th></th>
                         </tr>
@@ -408,13 +380,9 @@ function calculateRow(row) {
     const qty = parseFloat(row.querySelector('.tanker-qty').value) || 0;
     const rate = parseFloat(row.querySelector('.tanker-rate').value) || 0;
     const freight = parseFloat(row.querySelector('.tanker-freight').value) || 0;
-    const other = parseFloat(row.querySelector('.tanker-other').value) || 0;
     const total = qty * rate;
-    const net = total + freight + other;
-    const waste = (qty / 35) * 50;
-    const netQty = qty - (waste / 1000);
-    row.querySelector('.tanker-waste').value = waste.toFixed(3);
-    row.querySelector('.tanker-net-qty').value = netQty.toFixed(3);
+    const net = total + freight;
+    
     row.querySelector('.tanker-total').value = total.toFixed(2);
     row.querySelector('.tanker-net').value = net.toFixed(2);
     calculateGrandTotals();
@@ -422,23 +390,19 @@ function calculateRow(row) {
 
 function calculateGrandTotals() {
     const rows = document.querySelectorAll('#tankersBody .tanker-row');
-    let totalQty = 0, totalWaste = 0, totalNetQty = 0;
-    let grandTotal = 0, grandFreight = 0, grandOther = 0, grandNet = 0;
+    let totalQty = 0;
+    let grandTotal = 0, grandFreight = 0, grandNet = 0;
+    
     rows.forEach(row => {
-        totalQty += parseFloat(row.querySelector('.tanker-qty').value) || 0;
-        totalWaste += parseFloat(row.querySelector('.tanker-waste').value) || 0;
-        totalNetQty += parseFloat(row.querySelector('.tanker-net-qty').value) || 0;
-        grandTotal += parseFloat(row.querySelector('.tanker-total').value) || 0;
+        totalQty    += parseFloat(row.querySelector('.tanker-qty').value) || 0;
+        grandTotal  += parseFloat(row.querySelector('.tanker-total').value) || 0;
         grandFreight += parseFloat(row.querySelector('.tanker-freight').value) || 0;
-        grandOther += parseFloat(row.querySelector('.tanker-other').value) || 0;
-        grandNet += parseFloat(row.querySelector('.tanker-net').value) || 0;
+        grandNet    += parseFloat(row.querySelector('.tanker-net').value) || 0;
     });
+    
     document.getElementById('totalQty').textContent = totalQty.toFixed(3);
-    document.getElementById('totalWaste').textContent = totalWaste.toFixed(3);
-    document.getElementById('totalNetQty').textContent = totalNetQty.toFixed(3);
     document.getElementById('grandTotal').textContent = grandTotal.toFixed(2);
     document.getElementById('grandFreight').textContent = grandFreight.toFixed(2);
-    document.getElementById('grandOther').textContent = grandOther.toFixed(2);
     document.getElementById('grandNet').textContent = grandNet.toFixed(2);
 }
 
@@ -467,12 +431,6 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
             <input type="number" step="0.001" min="0" name="tankers[${i}][diesel_quantity]" class="form-control form-control-sm tanker-qty" required>
         </td>
         <td>
-            <input type="text" class="form-control form-control-sm tanker-waste bg-light" readonly value="0.000">
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm tanker-net-qty bg-light" readonly value="0.000">
-        </td>
-        <td>
             <input type="number" step="0.01" min="0" name="tankers[${i}][rate_per_ton]" class="form-control form-control-sm tanker-rate" required>
         </td>
         <td>
@@ -480,9 +438,6 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
         </td>
         <td>
             <input type="number" step="0.01" min="0" name="tankers[${i}][freight_charges]" class="form-control form-control-sm tanker-freight" value="0">
-        </td>
-        <td>
-            <input type="number" step="0.01" min="0" name="tankers[${i}][other_charges]" class="form-control form-control-sm tanker-other" value="0">
         </td>
         <td>
             <input type="text" class="form-control form-control-sm tanker-net font-weight-bold bg-light" readonly value="0.00">
@@ -494,7 +449,7 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
         </td>
     `;
 
-    const inputs = row.querySelectorAll('.tanker-qty, .tanker-rate, .tanker-freight, .tanker-other');
+    const inputs = row.querySelectorAll('.tanker-qty, .tanker-rate, .tanker-freight');
     inputs.forEach(inp => inp.addEventListener('input', function() { calculateRow(row); }));
 
     row.querySelector('.remove-tanker').addEventListener('click', function() {
@@ -506,7 +461,7 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
 });
 
 document.querySelectorAll('#tankersBody .tanker-row').forEach(row => {
-    const inputs = row.querySelectorAll('.tanker-qty, .tanker-rate, .tanker-freight, .tanker-other');
+    const inputs = row.querySelectorAll('.tanker-qty, .tanker-rate, .tanker-freight');
     inputs.forEach(inp => inp.addEventListener('input', function() { calculateRow(row); }));
 });
 

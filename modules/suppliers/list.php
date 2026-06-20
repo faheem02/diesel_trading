@@ -97,7 +97,7 @@ include '../../includes/header.php';
                         <th>Mobile</th>
                         <th>NTN / CNIC</th>
                         <th>Opening Balance</th>
-                        <th>Balance (Rs.)</th>
+                        <th>Balance($)</th>
                         <th>Actions</th>
                     </tr>
                 </thead>

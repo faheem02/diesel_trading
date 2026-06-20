@@ -103,7 +103,7 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Amount (Rs.) <span class="text-danger">*</span></label>
+                        <label class="small font-weight-bold">Amount ($) <span class="text-danger">*</span></label>
                         <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required
                                value="<?= htmlspecialchars($_POST['amount'] ?? '') ?>">
                     </div>

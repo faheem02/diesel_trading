@@ -126,13 +126,13 @@ include '../../includes/header.php';
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Opening Balance (Rs.)</label>
+                        <label class="small font-weight-bold">Opening Balance ($)</label>
                         <input type="text" class="form-control bg-light" readonly
                                value="<?= number_format($supplier['opening_balance'], 2) ?>">
                         <small class="text-muted">Opening balance cannot be changed after creation.</small>
                     </div>
                     <div class="form-group">
-                        <label class="small font-weight-bold">Current Balance (Rs.)</label>
+                        <label class="small font-weight-bold">Current Balance ($)</label>
                         <input type="text" class="form-control bg-light font-weight-bold" readonly
                                value="<?= number_format($supplier['balance'], 2) ?>">
                     </div>

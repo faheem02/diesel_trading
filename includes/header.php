@@ -24,7 +24,7 @@ $customers_active    = in_array($active_page ?? '', ['customer_add', 'customer_l
 $sales_mgmt_active   = in_array($active_page ?? '', ['sale_entry', 'sale_list', 'sale_return', 'sale_return_list', 'sales_outstanding']);
 $tanker_active       = in_array($active_page ?? '', ['tanker_list', 'tanker_expense_add', 'tanker_expense_list', 'expense_add', 'expense_list']);
 $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'accounts_manage', 'general_ledger']);
-$reports_active      = in_array($active_page ?? '', ['rpt_purchase', 'rpt_supplier_tanker_purchase', 'rpt_sales_daily_monthly', 'rpt_sales_customer_vehicle']);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -561,33 +561,6 @@ $reports_active      = in_array($active_page ?? '', ['rpt_purchase', 'rpt_suppli
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/accounts/general_ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> General Ledger
-                        </a>
-                    </div>
-                </div>
-            </li>
-            <hr class="sidebar-divider">
-            <div class="sidebar-heading">Reports</div>
-            <li class="nav-item <?= $reports_active ? 'active' : '' ?>">
-                <a class="nav-link <?= $reports_active ? '' : 'collapsed' ?>" href="#" data-toggle="collapse" data-target="#collapseReports" aria-expanded="<?= $reports_active ? 'true' : 'false' ?>" aria-controls="collapseReports">
-                    <i class="fas fa-fw fa-chart-bar"></i>
-                    <span>Reports</span>
-                </a>
-                <div id="collapseReports" class="collapse <?= $reports_active ? 'show' : '' ?>" aria-labelledby="headingReports" data-parent="#accordionSidebar">
-                    <div class="py-2 collapse-inner rounded">
-                        <h6 class="collapse-header">Purchase Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'rpt_purchase' ? 'active' : '' ?>" href="<?= $base_path ?>modules/reports/purchase_report.php">
-                            <i class="fas fa-fw fa-calendar-alt fa-sm mr-1"></i> Daily / Monthly Purchase
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'rpt_supplier_tanker_purchase' ? 'active' : '' ?>" href="<?= $base_path ?>modules/reports/supplier_tanker_purchase.php">
-                            <i class="fas fa-fw fa-building fa-sm mr-1"></i> Supplier / Tanker Purchase
-                        </a>
-                        <div class="collapse-divider"></div>
-                        <h6 class="collapse-header">Sales Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'rpt_sales_daily_monthly' ? 'active' : '' ?>" href="<?= $base_path ?>modules/reports/sales_daily_monthly.php">
-                            <i class="fas fa-fw fa-calendar-alt fa-sm mr-1"></i> Daily / Monthly Sales
-                        </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'rpt_sales_customer_vehicle' ? 'active' : '' ?>" href="<?= $base_path ?>modules/reports/sales_customer_vehicle.php">
-                            <i class="fas fa-fw fa-users fa-sm mr-1"></i> Customer / Vehicle Sales
                         </a>
                     </div>
                 </div>

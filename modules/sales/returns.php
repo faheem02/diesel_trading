@@ -23,21 +23,22 @@ if (isset($_GET['sale_id'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sale_id        = intval($_POST['sale_id']);
     $return_date    = $_POST['return_date'];
+    $tank_id        = intval($_POST['tank_id'] ?? 0);
     $qty_returned   = floatval($_POST['quantity_returned'] ?? 0);
     $rate_per_ton   = floatval($_POST['rate_per_ton'] ?? 0);
     $return_amount  = $qty_returned * $rate_per_ton;
     $reason         = trim($_POST['reason'] ?? '');
 
-    if (empty($return_date) || $qty_returned <= 0 || $rate_per_ton <= 0) {
+    if (empty($return_date) || $qty_returned <= 0 || $rate_per_ton <= 0 || $tank_id <= 0) {
         $error = "Please fill all required fields with valid values.";
     } else {
         $conn->begin_transaction();
         try {
             // Insert return record
             $stmt = $conn->prepare("INSERT INTO sale_returns
-                (sale_id, return_date, quantity_returned, rate_per_ton, return_amount, reason)
-                VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("isddds", $sale_id, $return_date, $qty_returned, $rate_per_ton, $return_amount, $reason);
+                (sale_id, tank_id, return_date, quantity_returned, rate_per_ton, return_amount, reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("iisddds", $sale_id, $tank_id, $return_date, $qty_returned, $rate_per_ton, $return_amount, $reason);
             $stmt->execute();
             $stmt->close();
 
@@ -62,6 +63,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM customer_ledger WHERE customer_id = $cid")->fetch_assoc()['bal'];
                 $conn->query("UPDATE customer_ledger SET balance = $bal WHERE id = $eid");
                 $conn->query("UPDATE customers SET balance = $bal WHERE id = $cid");
+            }
+
+            // Add stock back to the selected tank
+            $tank = $conn->query("SELECT current_stock FROM tanks WHERE id = $tank_id")->fetch_assoc();
+            if ($tank) {
+                $bal_before = $tank['current_stock'];
+                $bal_after  = $bal_before + $qty_returned;
+                $conn->query("UPDATE tanks SET current_stock = $bal_after WHERE id = $tank_id");
+                $stock_desc = "Sale Return - Invoice #" . $conn->real_escape_string($sale_row ? $sale_row['invoice_no'] : '');
+                $conn->query("INSERT INTO stock_ledger
+                    (tank_id, transaction_date, movement_type, reference_type, reference_id,
+                     quantity, rate, amount, balance_before, balance_after, description)
+                    VALUES ($tank_id, '$return_date', 'IN', 'sale_return', $sale_id,
+                            $qty_returned, $rate_per_ton, $return_amount, $bal_before, $bal_after, '$stock_desc')");
             }
 
             $conn->commit();
@@ -180,6 +195,22 @@ include '../../includes/header.php';
                                 <label class="small font-weight-bold">Rate Per Ton ($) <span class="text-danger">*</span></label>
                                 <input type="number" step="0.01" min="0.01" name="rate_per_ton" class="form-control"
                                        value="<?= number_format($sale['rate_per_ton'], 2, '.', '') ?>" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="small font-weight-bold">Return to Tank <span class="text-danger">*</span></label>
+                                <select name="tank_id" class="form-control" required>
+                                    <option value="">-- Select Tank --</option>
+                                    <?php
+                                    $tanks_res = $conn->query("SELECT id, tank_name, current_stock FROM tanks ORDER BY tank_name");
+                                    while ($t = $tanks_res->fetch_assoc()):
+                                    ?>
+                                    <option value="<?= $t['id'] ?>">
+                                        <?= htmlspecialchars($t['tank_name']) ?> (Stock: <?= number_format($t['current_stock'], 3) ?>)
+                                    </option>
+                                    <?php endwhile; ?>
+                                </select>
                             </div>
                         </div>
                     </div>

@@ -70,6 +70,19 @@ CREATE TABLE IF NOT EXISTS purchase_adjustments (
     FOREIGN KEY (purchase_id) REFERENCES purchases(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS sale_returns (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sale_id INT NOT NULL,
+    tank_id INT DEFAULT NULL,
+    return_date DATE NOT NULL,
+    quantity_returned DECIMAL(12,3) NOT NULL,
+    rate_per_ton DECIMAL(12,2) NOT NULL,
+    return_amount DECIMAL(12,2) NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sale_id) REFERENCES customer_sales(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO suppliers (company_name, phone, address) VALUES
 ('ABC Fuel Suppliers', '03001234567', 'Lahore, Pakistan'),
 ('XYZ Diesel Co.', '03007654321', 'Karachi, Pakistan');

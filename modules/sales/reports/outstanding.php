@@ -49,7 +49,7 @@ $sql = "SELECT
             c.address,
             c.balance AS current_balance,
             COALESCE(SUM(CASE WHEN cl.debit > 0 THEN cl.debit ELSE 0 END), 0) AS total_sales,
-            COALESCE(SUM(CASE WHEN cl.credit > 0 THEN cl.credit ELSE 0 END), 0) AS total_payments,
+            COALESCE(SUM(CASE WHEN cl.credit > 0 AND cl.reference_type != 'return' THEN cl.credit ELSE 0 END), 0) AS total_payments,
             COALESCE(SUM(CASE WHEN cl.reference_type = 'return' THEN cl.credit ELSE 0 END), 0) AS total_returns
         FROM customers c
         LEFT JOIN customer_ledger cl ON c.id = cl.customer_id 

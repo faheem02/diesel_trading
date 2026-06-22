@@ -15,59 +15,57 @@ Plain PHP/MySQL + SB Admin 2 (Bootstrap 4). Runs under XAMPP.
 ## Schema & migrations
 
 - `database/purchases_schema.sql` — authoritative schema (users, suppliers, purchases, purchase_tankers, purchase_returns, purchase_adjustments, supplier_ledger).
-- `database/migration_*.sql` — incremental changes adding tables/columns (tanks, sales, stock_ledger, customers, customer_ledger, customer_sales, tankers, tanker_expenses, expenses, bank_accounts, etc.). Apply in filename order.
+- `database/migration_*.sql` — incremental changes adding tables/columns (includes `migration_sale_return_stock.sql` — adds `tank_id` to `sale_returns` and extends `stock_ledger.reference_type` ENUM). Apply in filename order.
 - `database/full_schema.sql` — one-shot combined dump (use for fresh installs).
 
 ## Sidebar & page conventions
 
-Every page sets `$active_page` before including header. Active page values used in `includes/header.php:20-25` for nav highlighting — add new pages to the appropriate `in_array(...)` there.
+Every page sets `$active_page` before including header. Active page values used in `includes/header.php:20-27` for nav highlighting — add new pages to the appropriate `in_array(...)` there.
 
-Sidebar sections (all have corresponding active page arrays):
+Sidebar sections and their active page arrays (from `includes/header.php:20-27`):
+- **Dashboard**: `dashboard`
 - **Purchases**: `purchase_add`, `purchase_list`, `purchase_return`, `purchase_return_list`, `purchase_adjustment`
-- **Suppliers**: `supplier_add`, `supplier_list`, `supplier_ledger`, `supplier_payment`, `supplier_outstanding`, `supplier_statement`, `supplier_payment_history`
-- **Diesel Stock**: `tank_list`, `stock_in`, `stock_in_list`, `sale_add`, `sale_list`, `stock_adjustment`, `adjustment_list`, `stock_report_current`, `stock_report_tank_wise`, `stock_report_daily`, `stock_report_ledger`, `rpt_stock_summary`
+- **Suppliers**: `supplier_add`, `supplier_list`, `supplier_ledger`, `supplier_payment`, `supplier_outstanding`, `supplier_payment_history`
+- **Diesel Stock**: `tank_list`, `stock_in`, `stock_in_list`, `sale_add`, `sale_list`, `stock_adjustment`, `adjustment_list`, `stock_report_current`, `stock_report_tank_wise`, `stock_report_daily`, `stock_report_ledger`
 - **Customers**: `customer_add`, `customer_list`, `customer_ledger`, `customer_payment`, `customer_recovery`
-- **Sales Management**: `sale_entry`, `sale_list`
-- **Tanker Management**: `tanker_list`, `tanker_expense_add`, `tanker_expense_list`
-- **Accounts**: `cashbook`, `bankbook`, `accounts_manage`, `general_ledger`
-- **Reports**: `rpt_purchase`, `rpt_supplier_tanker_purchase`, `rpt_sales_daily_monthly`, `rpt_sales_customer_vehicle`
+- **Sales Management** (sidebar heading: "Sales"): `sale_entry`, `sale_list`, `sale_return`, `sale_return_list`, `sales_outstanding`
+- **Expenses** (sidebar heading: "Expenses"; variable: `$tanker_active`): `tanker_list`, `tanker_expense_add`, `tanker_expense_list`, `expense_add`, `expense_list`
+- **Accounts** (sidebar heading: "Cash & Bank"): `cashbook`, `bankbook`, `accounts_manage`, `general_ledger`
+
+Edit pages (`suppliers/edit.php`, `customers/edit.php`) reuse the list page `$active_page` (`supplier_list`, `customer_list`).
 
 ## Coding conventions
 
 - **Session auth**: Every page starts with `session_start()`, sets `$active_page`, requires `config/db.php`, includes header/footer.
 - **Path depth**: `../../` from `modules/purchases/`, `../../../` from `modules/suppliers/reports/`.
-- **DB**: mysqli, no ORM. Raw SQL with prepared statements. `require_once '../../config/db.php'` → `$conn`.
+- **DB**: mysqli, no ORM. Raw SQL with prepared statements (but some legacy code uses interpolated SQL instead of prepared statements — match existing style in the file you edit).
 - **Password**: stored in plaintext (legacy — do NOT replicate elsewhere).
 - **No build step** — straight PHP served by Apache. npm deps (`startbootstrap-sb-admin-2`) unused; SB Admin 2 assets in `assets/sb-admin2/` (gitignored).
 - **Payments**: Two directions — `to_supplier` (debit, we pay them) and `from_supplier` (credit, they pay us). For customers: `from_customer` (debit, they pay us) and `to_customer` (credit, we pay them).
 
 ## Ledger (double-entry)
 
-Debit = payment received by supplier (or from customer). Credit = purchase from supplier (or sale to customer). Balance = SUM(debit) - SUM(credit). `suppliers.balance` / `customers.balance` are denormalized. See `includes/ledger.php` (`postToLedger()` helper) or inline raw SQL patterns in `modules/purchases/add.php:133-157` and `modules/customers/payment.php:9-20`.
-
-## Waste calculation
-
-`waste_kg = (qty / 35) * 50`, `net_qty = qty - (waste_kg / 1000)`. Applied per-tanker-row in both PHP (`modules/purchases/add.php:38-39`) and JS (`modules/purchases/add.php:378-379`).
+Debit = payment received by supplier (or from customer). Credit = purchase from supplier (or sale to customer). Balance = SUM(debit) - SUM(credit). `suppliers.balance` / `customers.balance` are denormalized. See `includes/ledger.php` (`postToLedger()` helper) or inline raw SQL patterns in `modules/purchases/add.php:118-144` and `modules/customers/payment.php:9-20`.
 
 ## SQL quirks
 
 - `purchases.invoice_no` has a UNIQUE constraint — duplicate gives MySQL error 1062, caught as "Invoice number already exists."
-- `modules/purchases/add.php:134` uses `$net_purchase_cost` which is undefined — should be `$total_net`. This affects the ledger description debit value when a payment is made alongside the purchase.
 
-## All modules (none are empty stubs)
+## All modules
 
 | Module path | Files |
 |---|---|
-| `modules/purchases/` | add, list, returns, returns_list, adjustments |
+| `modules/purchases/` | add, list |
 | `modules/suppliers/` | add, edit, list, ledger, payment |
 | `modules/suppliers/reports/` | outstanding, payment_history |
 | `modules/diesel_stock/` | tanks, stock_in, stock_in_list, sales, sales_list, adjustments, adjustments_list |
 | `modules/diesel_stock/reports/` | current_stock, tank_wise_stock, daily_movement, stock_ledger |
 | `modules/customers/` | add, edit, list, ledger, payment |
 | `modules/customers/reports/` | recovery |
-| `modules/sales/` | add, list |
+| `modules/sales/` | add, list, returns, returns_list |
+| `modules/sales/reports/` | outstanding |
 | `modules/tankers/` | list, expenses_add, expenses_list, expenses_delete |
-| `modules/accounts/` | cashbook, bankbook, general_ledger |
-| `modules/reports/` | purchase_report, supplier_tanker_purchase, sales_daily_monthly, sales_customer_vehicle, stock_summary, trial_balance, profit_loss, balance_sheet |
 | `modules/expenses/` | add, list, delete |
-| `modules/diesel_cashbook/` | standalone mini-app (index, api, install, includes/db.php) — not in sidebar |
+| `modules/accounts/` | cashbook, bankbook, general_ledger |
+| `modules/diesel_cashbook/` | standalone mini-app (Bootstrap 5, own DB config) — not in sidebar |
+| `modules/cashbook/` | Bootstrap 5 standalone page (may be broken — missing `includes/db.php`) |

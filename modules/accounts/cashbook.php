@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'cashbook';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 // Handle Add Account via modal
 $acc_success = "";

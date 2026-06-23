@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'sales_outstanding';
-require_once '../../../config/db.php'; // Fixed: 3 levels up
+require_once '../../../includes/db.php'; // Fixed: 3 levels up
 
 $from_date = $_GET['from_date'] ?? date('Y-m-01');
 $to_date   = $_GET['to_date']   ?? date('Y-m-d');

@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'tanker_expense_list';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 $tanker_id    = intval($_GET['tanker_id'] ?? 0);
 $expense_type = $_GET['expense_type'] ?? '';

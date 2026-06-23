@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'customer_recovery';
-require_once '../../../config/db.php';
+require_once '../../../includes/db.php';
 
 $customer_id = intval($_GET['customer_id'] ?? 0);
 $from_date   = $_GET['from_date'] ?? '';

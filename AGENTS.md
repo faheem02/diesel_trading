@@ -10,7 +10,7 @@ Plain PHP/MySQL + SB Admin 2 (Bootstrap 4). Runs under XAMPP.
 
 ## DB config
 
-`config/db.php` — MySQL root, no password, database `diesel_trading`.
+`includes/db.php` — MySQL root, no password, database `diesel_trading`.
 
 ## Schema & migrations
 
@@ -36,7 +36,7 @@ Edit pages (`suppliers/edit.php`, `customers/edit.php`) reuse the list page `$ac
 
 ## Coding conventions
 
-- **Session auth**: Every page starts with `session_start()`, sets `$active_page`, requires `config/db.php`, includes header/footer.
+- **Session auth**: Every page starts with `session_start()`, sets `$active_page`, requires `includes/db.php`, includes header/footer.
 - **Path depth**: `../../` from `modules/purchases/`, `../../../` from `modules/suppliers/reports/`.
 - **DB**: mysqli, no ORM. Raw SQL with prepared statements (but some legacy code uses interpolated SQL instead of prepared statements — match existing style in the file you edit).
 - **Password**: stored in plaintext (legacy — do NOT replicate elsewhere).

@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'stock_report_ledger';
-require_once '../../../config/db.php';
+require_once '../../../includes/db.php';
 
 $from_date = $_GET['from_date'] ?? '';
 $to_date   = $_GET['to_date'] ?? '';

@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'supplier_outstanding';
-require_once '../../../config/db.php';
+require_once '../../../includes/db.php';
 
 $suppliers = $conn->query("
     SELECT s.*,

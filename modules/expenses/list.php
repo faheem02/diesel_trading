@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'expense_list';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 $category    = $_GET['category'] ?? '';
 $subcategory = $_GET['subcategory'] ?? '';

@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 $from_date   = $_GET['from_date'] ?? date('Y-m-01');
 $to_date     = $_GET['to_date']   ?? date('Y-m-d');

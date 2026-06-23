@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'customer_ledger';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 $customer_id = intval($_GET['id'] ?? 0);
 $from_date   = $_GET['from_date'] ?? '';

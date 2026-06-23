@@ -1,7 +1,7 @@
 ﻿<?php
 session_start();
 $active_page = 'supplier_ledger';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 require_once '../../includes/ledger.php';
 
 $supplier_id = intval($_GET['id'] ?? 0);

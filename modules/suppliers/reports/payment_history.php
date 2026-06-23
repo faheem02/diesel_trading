@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'supplier_payment_history';
-require_once '../../../config/db.php';
+require_once '../../../includes/db.php';
 
 $supplier_id = intval($_GET['supplier_id'] ?? 0);
 $from_date = $_GET['from_date'] ?? '';

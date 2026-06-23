@@ -5,7 +5,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 $active_page = 'dashboard';
-require_once 'config/db.php';
+require_once 'includes/db.php';
 include 'includes/header.php';
 
 $today = date('Y-m-d');

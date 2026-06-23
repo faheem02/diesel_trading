@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'customer_add';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 $success = "";
 $error = "";

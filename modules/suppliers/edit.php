@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'supplier_list';
-require_once '../../config/db.php';
+require_once '../../includes/db.php';
 
 $id = intval($_GET['id'] ?? 0);
 

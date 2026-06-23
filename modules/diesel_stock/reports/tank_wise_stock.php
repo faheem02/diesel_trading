@@ -1,7 +1,7 @@
 <?php
 session_start();
 $active_page = 'stock_report_tank_wise';
-require_once '../../../config/db.php';
+require_once '../../../includes/db.php';
 
 $tank_id = intval($_GET['tank_id'] ?? 0);
 $from_date = $_GET['from_date'] ?? '';

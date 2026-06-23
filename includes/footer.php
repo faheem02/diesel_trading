@@ -1,9 +1,5 @@
 <?php
-$doc_root = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']);
-$project_root = str_replace('\\', '/', dirname(__DIR__));
-$project_path = str_replace($doc_root, '', $project_root);
-$base_path = ($project_path === '' || $project_path === '/') ? './' : rtrim($project_path, '/') . '/';
-$asset_path = $base_path . 'assets/sb-admin2/';
+require_once __DIR__ . '/config.php';
 ?>
                 </div>
                 <!-- /.container-fluid -->

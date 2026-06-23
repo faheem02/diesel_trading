@@ -1,7 +1,8 @@
 <?php
 session_start();
+require_once 'includes/config.php';
 if (!isset($_SESSION['user_id'])) {
-    header("Location: auth/login.php");
+    header("Location: " . $base_url . "auth/login.php");
     exit;
 }
 $active_page = 'dashboard';

@@ -1,21 +1,10 @@
 <?php
+require_once __DIR__ . '/config.php';
+
 if (!isset($_SESSION['user_id'])) {
-    $script_name = $_SERVER['SCRIPT_NAME'];
-    if (strpos($script_name, '/auth/') === false) {
-        $depth = substr_count(trim(dirname($script_name), '/'), '/');
-        $prefix = str_repeat('../', $depth);
-        header("Location: " . $prefix . "auth/login.php");
-    } else {
-        header("Location: login.php");
-    }
+    header("Location: " . $base_url . "auth/login.php");
     exit;
 }
-
-// Calculate base path for assets relative to current file
-$script_dir = dirname($_SERVER['SCRIPT_NAME']);
-$depth = substr_count(trim($script_dir, '/'), '/');
-$base_path = $depth > 0 ? str_repeat('../', $depth) : './';
-$asset_path = $base_path . 'assets/sb-admin2/';
 
 $purchases_active    = in_array($active_page ?? '', ['purchase_add', 'purchase_list', 'purchase_return', 'purchase_return_list', 'purchase_adjustment']);
 $suppliers_active    = in_array($active_page ?? '', ['supplier_add', 'supplier_list', 'supplier_ledger', 'supplier_payment', 'supplier_outstanding', 'supplier_payment_history']);
@@ -377,7 +366,7 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
     <div id="wrapper">
         <!-- Sidebar -->
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="<?= $base_path ?>dashboard.php">
+            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="<?= $base_url ?>dashboard.php">
                 <div class="sidebar-brand-icon">
                     <i class="fas fa-fuel-pump"></i>
                 </div>
@@ -385,7 +374,7 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
             </a>
             <hr class="sidebar-divider my-0">
             <li class="nav-item <?= ($active_page ?? '') === 'dashboard' ? 'active' : '' ?>">
-                <a class="nav-link" href="<?= $base_path ?>dashboard.php">
+                <a class="nav-link" href="<?= $base_url ?>dashboard.php">
                     <i class="fas fa-fw fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
@@ -400,10 +389,10 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 <div id="collapsePurchases" class="collapse <?= $purchases_active ? 'show' : '' ?>" aria-labelledby="headingPurchases" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Manage Purchases:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_add' ? 'active' : '' ?>" href="<?= $base_path ?>modules/purchases/add.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_add' ? 'active' : '' ?>" href="<?= $base_url ?>modules/purchases/add.php">
                             <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> New Purchase
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/purchases/list.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'purchase_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/purchases/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Purchase List
                         </a>
                     </div>
@@ -419,23 +408,23 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 <div id="collapseSuppliers" class="collapse <?= $suppliers_active ? 'show' : '' ?>" aria-labelledby="headingSuppliers" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Manage Suppliers:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_add' ? 'active' : '' ?>" href="<?= $base_path ?>modules/suppliers/add.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_add' ? 'active' : '' ?>" href="<?= $base_url ?>modules/suppliers/add.php">
                             <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> Add New Supplier
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/suppliers/list.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/suppliers/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Supplier List
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/suppliers/ledger.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_ledger' ? 'active' : '' ?>" href="<?= $base_url ?>modules/suppliers/ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> Ledger
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_payment' ? 'active' : '' ?>" href="<?= $base_path ?>modules/suppliers/payment.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_payment' ? 'active' : '' ?>" href="<?= $base_url ?>modules/suppliers/payment.php">
                             <i class="fas fa-fw fa-money-bill-wave fa-sm mr-1"></i> Payment
                         </a>
                         <h6 class="collapse-header">Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_outstanding' ? 'active' : '' ?>" href="<?= $base_path ?>modules/suppliers/reports/outstanding.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_outstanding' ? 'active' : '' ?>" href="<?= $base_url ?>modules/suppliers/reports/outstanding.php">
                             <i class="fas fa-fw fa-chart-bar fa-sm mr-1"></i> Outstanding
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_payment_history' ? 'active' : '' ?>" href="<?= $base_path ?>modules/suppliers/reports/payment_history.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'supplier_payment_history' ? 'active' : '' ?>" href="<?= $base_url ?>modules/suppliers/reports/payment_history.php">
                             <i class="fas fa-fw fa-history fa-sm mr-1"></i> Payment History
                         </a>
                     </div>
@@ -451,17 +440,17 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 <div id="collapseStock" class="collapse <?= $diesel_stock_active ? 'show' : '' ?>" aria-labelledby="headingStock" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Manage Stock:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'tank_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/tanks.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'tank_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/tanks.php">
                             <i class="fas fa-fw fa-oil-can fa-sm mr-1"></i> Tank Wise Stock
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_adjustment' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/adjustments.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_adjustment' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/adjustments.php">
                             <i class="fas fa-fw fa-sliders-h fa-sm mr-1"></i> Stock Adjustment
                         </a>
                         <h6 class="collapse-header">Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_tank_wise' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/reports/tank_wise_stock.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_tank_wise' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/reports/tank_wise_stock.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Stock Summary
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/diesel_stock/reports/stock_ledger.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'stock_report_ledger' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/reports/stock_ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> Stock Ledger
                         </a>
                     </div>
@@ -477,20 +466,20 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 <div id="collapseCustomers" class="collapse <?= $customers_active ? 'show' : '' ?>" aria-labelledby="headingCustomers" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Manage Customers:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_add' ? 'active' : '' ?>" href="<?= $base_path ?>modules/customers/add.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_add' ? 'active' : '' ?>" href="<?= $base_url ?>modules/customers/add.php">
                             <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> Add Customer
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/customers/list.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/customers/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Customer List
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/customers/ledger.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_ledger' ? 'active' : '' ?>" href="<?= $base_url ?>modules/customers/ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> Ledger
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_payment' ? 'active' : '' ?>" href="<?= $base_path ?>modules/customers/payment.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_payment' ? 'active' : '' ?>" href="<?= $base_url ?>modules/customers/payment.php">
                             <i class="fas fa-fw fa-money-bill-wave fa-sm mr-1"></i> Record Payment
                         </a>
                         <h6 class="collapse-header">Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_recovery' ? 'active' : '' ?>" href="<?= $base_path ?>modules/customers/reports/recovery.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'customer_recovery' ? 'active' : '' ?>" href="<?= $base_url ?>modules/customers/reports/recovery.php">
                             <i class="fas fa-fw fa-hand-holding-usd fa-sm mr-1"></i> Recovery
                         </a>
                     </div>
@@ -506,20 +495,20 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 <div id="collapseSalesMgmt" class="collapse <?= $sales_mgmt_active ? 'show' : '' ?>" aria-labelledby="headingSalesMgmt" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Manage Sales:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_entry' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/add.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_entry' ? 'active' : '' ?>" href="<?= $base_url ?>modules/sales/add.php">
                             <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> Customer Sale Entry
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/list.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/sales/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Sales List
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_return' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/returns.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_return' ? 'active' : '' ?>" href="<?= $base_url ?>modules/sales/returns.php">
                             <i class="fas fa-fw fa-undo-alt fa-sm mr-1"></i> New Return
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_return_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/returns_list.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sale_return_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/sales/returns_list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Return List
                         </a>
                         <h6 class="collapse-header">Reports:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'sales_outstanding' ? 'active' : '' ?>" href="<?= $base_path ?>modules/sales/reports/outstanding.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'sales_outstanding' ? 'active' : '' ?>" href="<?= $base_url ?>modules/sales/reports/outstanding.php">
                             <i class="fas fa-fw fa-chart-bar fa-sm mr-1"></i> Outstanding
                         </a>
                     </div>
@@ -534,10 +523,10 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 </a>
                 <div id="collapseTankers" class="collapse <?= $tanker_active ? 'show' : '' ?>" aria-labelledby="headingTankers" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
-                        <a class="collapse-item <?= ($active_page ?? '') === 'tanker_expense_add' ? 'active' : '' ?>" href="<?= $base_path ?>modules/tankers/expenses_add.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'tanker_expense_add' ? 'active' : '' ?>" href="<?= $base_url ?>modules/tankers/expenses_add.php">
                             <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> Add Expense
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'tanker_expense_list' ? 'active' : '' ?>" href="<?= $base_path ?>modules/tankers/expenses_list.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'tanker_expense_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/tankers/expenses_list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Expense List
                         </a>
                     </div>
@@ -553,13 +542,13 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                 <div id="collapseAccounts" class="collapse <?= $accounts_active ? 'show' : '' ?>" aria-labelledby="headingAccounts" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Books:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'cashbook' ? 'active' : '' ?>" href="<?= $base_path ?>modules/accounts/cashbook.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'cashbook' ? 'active' : '' ?>" href="<?= $base_url ?>modules/accounts/cashbook.php">
                             <i class="fas fa-fw fa-money-bill-wave fa-sm mr-1"></i> Cash Book
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'bankbook' ? 'active' : '' ?>" href="<?= $base_path ?>modules/accounts/bankbook.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'bankbook' ? 'active' : '' ?>" href="<?= $base_url ?>modules/accounts/bankbook.php">
                             <i class="fas fa-fw fa-university fa-sm mr-1"></i> Bank Book
                         </a>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'general_ledger' ? 'active' : '' ?>" href="<?= $base_path ?>modules/accounts/general_ledger.php">
+                        <a class="collapse-item <?= ($active_page ?? '') === 'general_ledger' ? 'active' : '' ?>" href="<?= $base_url ?>modules/accounts/general_ledger.php">
                             <i class="fas fa-fw fa-book fa-sm mr-1"></i> General Ledger
                         </a>
                     </div>
@@ -586,7 +575,7 @@ $accounts_active     = in_array($active_page ?? '', ['cashbook', 'bankbook', 'ac
                                 <i class="fas fa-user-circle fa-2x text-gray-400"></i>
                             </a>
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
-                                <a class="dropdown-item" href="<?= $base_path ?>auth/logout.php">
+                                <a class="dropdown-item" href="<?= $base_url ?>auth/logout.php">
                                     <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
                                     Logout
                                 </a>

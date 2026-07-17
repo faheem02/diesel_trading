@@ -168,8 +168,8 @@ include '../../includes/header.php';
                             </td>
                             <td class="font-weight-bold text-danger"><?= number_format($row['amount'], 2) ?></td>
                             <td><?= htmlspecialchars($row['description'] ?: '-') ?></td>
-                            <td>
-                                <a href="expenses_delete.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete this expense?')"><i class="fas fa-trash"></i></a>
+                            <td class="text-center" style="white-space:nowrap">
+                                <a href="expenses_delete.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this expense?')"><i class="fas fa-trash"></i></a>
                             </td>
                         </tr>
                     <?php endwhile; endif; ?>

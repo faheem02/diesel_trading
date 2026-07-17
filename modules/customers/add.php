@@ -11,13 +11,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mobile         = trim($_POST['mobile'] ?? '');
     $address        = trim($_POST['address'] ?? '');
     $opening_balance = floatval($_POST['opening_balance'] ?? 0);
-    $credit_limit   = floatval($_POST['credit_limit'] ?? 0);
 
     if (empty($customer_name)) {
         $error = "Customer name is required.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO customers (customer_name, mobile, address, opening_balance, credit_limit, balance) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssddd", $customer_name, $mobile, $address, $opening_balance, $credit_limit, $opening_balance);
+        $stmt = $conn->prepare("INSERT INTO customers (customer_name, mobile, address, opening_balance, balance) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssddd", $customer_name, $mobile, $address, $opening_balance, $opening_balance);
 
         if ($stmt->execute()) {
             $new_id = $conn->insert_id;
@@ -100,14 +99,6 @@ include '../../includes/header.php';
                         <input type="number" step="0.01" name="opening_balance" class="form-control"
                                value="<?= htmlspecialchars($_POST['opening_balance'] ?? '0') ?>">
                         <small class="text-muted">Positive = customer owes us, Negative = we owe customer</small>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Credit Limit ($)</label>
-                        <input type="number" step="0.01" min="0" name="credit_limit" class="form-control"
-                               value="<?= htmlspecialchars($_POST['credit_limit'] ?? '0') ?>">
-                        <small class="text-muted">Maximum credit allowed for this customer (0 = no limit)</small>
                     </div>
                 </div>
             </div>

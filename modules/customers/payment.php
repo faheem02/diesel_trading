@@ -7,46 +7,38 @@ $success = "";
 $error   = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $customer_id     = intval($_POST['customer_id']);
-    $payment_date    = $_POST['payment_date'];
-    $amount          = floatval($_POST['amount'] ?? 0);
-    $direction       = $_POST['direction'] ?? 'from_customer';
-    $payment_method  = trim($_POST['payment_method'] ?? 'Cash');
-    $bank_account_id = intval($_POST['bank_account_id'] ?? 0);
-    $notes           = trim($_POST['notes'] ?? '');
+    $customer_id  = intval($_POST['customer_id']);
+    $payment_date = $_POST['payment_date'];
+    $amount       = floatval($_POST['amount'] ?? 0);
+    $direction    = $_POST['direction'] ?? 'from_customer';
+    $notes        = trim($_POST['notes'] ?? '');
 
     if ($customer_id <= 0 || empty($payment_date) || $amount <= 0) {
         $error = "Please fill all required fields with valid values.";
-    } elseif ($bank_account_id <= 0) {
-        $error = "Please select a Cash or Bank account.";
     } else {
         $conn->begin_transaction();
         try {
             if ($direction === 'from_customer') {
-                // Customer pays us → our cash/bank comes IN
+                // Customer pays us (cash IN)
                 $debit  = 0;
                 $credit = $amount;
                 $desc   = "Payment from customer" . (!empty($notes) ? " — $notes" : "");
-                $bal_change = $amount; // money enters our account
             } else {
-                // We pay customer → our cash/bank goes OUT
+                // We pay customer (cash OUT)
                 $debit  = $amount;
                 $credit = 0;
                 $desc   = "Payment to customer" . (!empty($notes) ? " — $notes" : "");
-                $bal_change = -$amount; // money leaves our account
             }
 
-            // 1. Insert into customer_ledger
+            // 1. Insert into customer_ledger (Cash payment → shows in Cash Book)
             $stmt = $conn->prepare("
                 INSERT INTO customer_ledger
-                    (customer_id, transaction_date, description, debit, credit, reference_type, bank_account_id, payment_method)
-                VALUES (?, ?, ?, ?, ?, 'payment', ?, ?)
+                    (customer_id, transaction_date, description, debit, credit, reference_type, payment_method)
+                VALUES (?, ?, ?, ?, ?, 'payment', 'Cash')
             ");
-            // types: i s s d d i s = 7 params
-            $stmt->bind_param("issddis",
+            $stmt->bind_param("issdd",
                 $customer_id, $payment_date, $desc,
-                $debit, $credit,
-                $bank_account_id, $payment_method
+                $debit, $credit
             );
             $stmt->execute();
             $entry_id = $conn->insert_id;
@@ -59,11 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->query("UPDATE customer_ledger SET balance = $running WHERE id = $entry_id");
             $conn->query("UPDATE customers SET balance = $running WHERE id = $customer_id");
 
-            // 3. Update cash / bank account balance
-            $conn->query("UPDATE bank_accounts
-                          SET current_balance = current_balance + ($bal_change)
-                          WHERE id = $bank_account_id");
-
             $conn->commit();
             $label   = $direction === 'from_customer' ? 'received from' : 'paid to';
             $success = "Payment of $ " . number_format($amount, 2) . " $label customer recorded successfully!";
@@ -75,9 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$customers     = $conn->query("SELECT id, customer_name, balance FROM customers ORDER BY customer_name ASC");
-$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance
-                                FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
+$customers = $conn->query("SELECT id, customer_name, balance FROM customers ORDER BY customer_name ASC");
 include '../../includes/header.php';
 ?>
 
@@ -155,42 +140,12 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div class="row">
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Payment Method <span class="text-danger">*</span></label>
-                        <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash"          <?= (!isset($_POST['payment_method']) || $_POST['payment_method'] === 'Cash')          ? 'selected' : '' ?>>Cash</option>
-                            <option value="Bank Transfer" <?= (isset($_POST['payment_method']) && $_POST['payment_method'] === 'Bank Transfer') ? 'selected' : '' ?>>Bank Transfer</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-5">
-                    <div class="form-group">
-                        <label class="small font-weight-bold" id="acct_label">Cash Account <span class="text-danger">*</span></label>
-                        <select name="bank_account_id" id="bank_account_id" class="form-control" required>
-                            <option value="">-- Select Account --</option>
-                            <?php
-                            $bank_accounts->data_seek(0);
-                            while ($b = $bank_accounts->fetch_assoc()):
-                                $display = htmlspecialchars($b['account_name']);
-                                if ($b['bank_name'])      $display = htmlspecialchars($b['bank_name']) . ' — ' . $display;
-                                if ($b['account_number']) $display .= ' (' . htmlspecialchars($b['account_number']) . ')';
-                                $display .= ' | Bal: ' . number_format($b['current_balance'], 2);
-                            ?>
-                                <option value="<?= $b['id'] ?>"
-                                    data-type="<?= $b['account_type'] ?>"
-                                    <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
-                                    [<?= $b['account_type'] ?>] <?= $display ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-8">
                     <div class="form-group">
                         <label class="small font-weight-bold">Notes</label>
                         <input type="text" name="notes" class="form-control" placeholder="Optional notes"
                                value="<?= htmlspecialchars($_POST['notes'] ?? '') ?>">
+                        <small class="text-muted">Payments are recorded as Cash and appear in the Cash Book.</small>
                     </div>
                 </div>
             </div>
@@ -206,35 +161,5 @@ include '../../includes/header.php';
         </a>
     </div>
 </form>
-
-<script>
-const pmSelect   = document.getElementById('payment_method');
-const acctSelect = document.getElementById('bank_account_id');
-const acctLabel  = document.getElementById('acct_label');
-
-function filterAccounts() {
-    const method   = pmSelect.value;
-    const isCash   = (method === 'Cash');
-    const wantType = isCash ? 'Cash' : 'Bank';
-
-    acctLabel.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
-
-    let firstMatch = null;
-    acctSelect.querySelectorAll('option[data-type]').forEach(opt => {
-        const show = (opt.dataset.type === wantType);
-        opt.style.display = show ? '' : 'none';
-        if (show && !firstMatch) firstMatch = opt.value;
-    });
-
-    // If current selection is now hidden, auto-select first visible
-    const cur = acctSelect.querySelector('option:checked');
-    if (!cur || cur.style.display === 'none') {
-        acctSelect.value = firstMatch || '';
-    }
-}
-
-pmSelect.addEventListener('change', filterAccounts);
-filterAccounts(); // run on page load
-</script>
 
 <?php include '../../includes/footer.php'; ?>

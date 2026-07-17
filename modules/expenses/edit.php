@@ -1,7 +1,13 @@
 <?php
 session_start();
-$active_page = 'expense_add';
+$active_page = 'expense_list';
 require_once '../../includes/db.php';
+
+$id = intval($_GET['id'] ?? 0);
+if ($id <= 0) { header("Location: list.php"); exit; }
+
+$expense = $conn->query("SELECT * FROM expenses WHERE id = $id")->fetch_assoc();
+if (!$expense) { header("Location: list.php"); exit; }
 
 $success = "";
 $error = "";
@@ -17,6 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($expense_date) || empty($expense_type) || $amount <= 0) {
         $error = "Please fill all required fields.";
     } else {
+        $old_amount = $expense['amount'];
+        $old_bank_id = $expense['bank_account_id'];
+
         if ($payment_method === 'Cash' && $bank_account_id <= 0) {
             $cash_acc = $conn->query("SELECT id FROM bank_accounts WHERE account_type = 'Cash' LIMIT 1")->fetch_assoc();
             if ($cash_acc) $bank_account_id = $cash_acc['id'];
@@ -26,8 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $conn->begin_transaction();
         try {
-            $stmt = $conn->prepare("INSERT INTO expenses (expense_date, category, subcategory, amount, description, payment_method, bank_account_id) VALUES (?, ?, '', ?, ?, ?, ?)");
-            $stmt->bind_param("sssdsi", $expense_date, $expense_type, $amount, $description, $payment_method, $bank_id);
+            if ($old_bank_id) {
+                $conn->query("UPDATE bank_accounts SET current_balance = current_balance + $old_amount WHERE id = $old_bank_id");
+            }
+
+            $stmt = $conn->prepare("UPDATE expenses SET expense_date=?, category=?, subcategory='', amount=?, description=?, payment_method=?, bank_account_id=? WHERE id=?");
+            $stmt->bind_param("sssdsii", $expense_date, $expense_type, $amount, $description, $payment_method, $bank_id, $id);
             $stmt->execute();
             $stmt->close();
 
@@ -36,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $conn->commit();
-            $success = "Expense recorded successfully!";
-            $_POST = [];
+            header("Location: list.php?updated=1");
+            exit;
         } catch (Exception $e) {
             $conn->rollback();
             $error = "Database error: " . $e->getMessage();
@@ -50,17 +63,14 @@ $bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_numbe
 include '../../includes/header.php';
 ?>
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-receipt mr-1"></i> Expense Entry</h1>
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-edit mr-1"></i> Edit Expense</h1>
     <div>
         <a href="list.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
-            <i class="fas fa-list"></i> Expense List
+            <i class="fas fa-arrow-left"></i> Back to List
         </a>
     </div>
 </div>
 
-<?php if ($success): ?>
-    <div class="alert alert-success alert-dismissible fade show"><?= htmlspecialchars($success) ?><button type="button" class="close" data-dismiss="alert">&times;</button></div>
-<?php endif; ?>
 <?php if ($error): ?>
     <div class="alert alert-danger alert-dismissible fade show"><?= htmlspecialchars($error) ?><button type="button" class="close" data-dismiss="alert">&times;</button></div>
 <?php endif; ?>
@@ -76,7 +86,7 @@ include '../../includes/header.php';
                     <div class="form-group">
                         <label class="small font-weight-bold">Date <span class="text-danger">*</span></label>
                         <input type="date" name="expense_date" class="form-control" required
-                               value="<?= htmlspecialchars($_POST['expense_date'] ?? date('Y-m-d')) ?>">
+                               value="<?= htmlspecialchars($_POST['expense_date'] ?? $expense['expense_date']) ?>">
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -84,12 +94,13 @@ include '../../includes/header.php';
                         <label class="small font-weight-bold">Expense Type <span class="text-danger">*</span></label>
                         <select name="expense_type" class="form-control" required>
                             <option value="">-- Select Type --</option>
-                            <option value="Fuel" <?= (($_POST['expense_type'] ?? '') === 'Fuel') ? 'selected' : '' ?>>Fuel Expense</option>
-                            <option value="Driver" <?= (($_POST['expense_type'] ?? '') === 'Driver') ? 'selected' : '' ?>>Driver Expense</option>
-                            <option value="Maintenance" <?= (($_POST['expense_type'] ?? '') === 'Maintenance') ? 'selected' : '' ?>>Maintenance</option>
-                            <option value="Toll Tax" <?= (($_POST['expense_type'] ?? '') === 'Toll Tax') ? 'selected' : '' ?>>Toll Tax</option>
-                            <option value="Office" <?= (($_POST['expense_type'] ?? '') === 'Office') ? 'selected' : '' ?>>Office Expense</option>
-                            <option value="Other" <?= (($_POST['expense_type'] ?? '') === 'Other') ? 'selected' : '' ?>>Other</option>
+                            <?php
+                            $types = ['Fuel', 'Driver', 'Maintenance', 'Toll Tax', 'Office', 'Other'];
+                            $current = $_POST['expense_type'] ?? $expense['category'];
+                            foreach ($types as $t):
+                            ?>
+                                <option value="<?= $t ?>" <?= ($current === $t) ? 'selected' : '' ?>><?= $t ?> Expense</option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
@@ -97,14 +108,14 @@ include '../../includes/header.php';
                     <div class="form-group">
                         <label class="small font-weight-bold">Amount ($) <span class="text-danger">*</span></label>
                         <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required
-                               value="<?= htmlspecialchars($_POST['amount'] ?? '') ?>">
+                               value="<?= htmlspecialchars($_POST['amount'] ?? $expense['amount']) ?>">
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="small font-weight-bold">Description</label>
                         <input type="text" name="description" class="form-control" placeholder="Optional notes"
-                               value="<?= htmlspecialchars($_POST['description'] ?? '') ?>">
+                               value="<?= htmlspecialchars($_POST['description'] ?? $expense['description']) ?>">
                     </div>
                 </div>
             </div>
@@ -113,27 +124,23 @@ include '../../includes/header.php';
                     <div class="form-group">
                         <label class="small font-weight-bold">Payment Method</label>
                         <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash" <?= (!isset($_POST['payment_method']) || $_POST['payment_method']==='Cash') ? 'selected':'' ?>>Cash</option>
-                            <option value="Bank" <?= (isset($_POST['payment_method']) && $_POST['payment_method']==='Bank') ? 'selected':'' ?>>Bank</option>
+                            <option value="Cash" <?= (($_POST['payment_method'] ?? $expense['payment_method']) === 'Cash') ? 'selected' : '' ?>>Cash</option>
+                            <option value="Bank" <?= (($_POST['payment_method'] ?? $expense['payment_method']) === 'Bank') ? 'selected' : '' ?>>Bank</option>
                         </select>
                     </div>
                 </div>
                 <div class="col-md-4" id="bank_account_group">
                     <div class="form-group">
-                        <label class="small font-weight-bold" id="acct_label">Select Account <span class="text-danger">*</span></label>
+                        <label class="small font-weight-bold">Select Bank Account <span class="text-danger">*</span></label>
                         <select name="bank_account_id" id="bank_account_id" class="form-control">
-                            <option value="">-- Select Account --</option>
+                            <option value="">-- Select Bank --</option>
                             <?php if ($bank_accounts && $bank_accounts->num_rows > 0):
                                 $bank_accounts->data_seek(0);
                                 while ($b = $bank_accounts->fetch_assoc()):
-                                    $disp = htmlspecialchars($b['account_name']);
-                                    if ($b['bank_name']) $disp = htmlspecialchars($b['bank_name']) . ' — ' . $disp;
-                                    if ($b['account_number']) $disp .= ' (' . htmlspecialchars($b['account_number']) . ')';
-                                    $disp .= ' | Bal: ' . number_format($b['current_balance'], 2); ?>
+                                    if($b['account_type'] !== 'Bank') continue; ?>
                                 <option value="<?= $b['id'] ?>"
-                                    data-type="<?= $b['account_type'] ?>"
-                                    <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
-                                    [<?= $b['account_type'] ?>] <?= $disp ?>
+                                    <?= (($_POST['bank_account_id'] ?? $expense['bank_account_id']) == $b['id']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($b['bank_name'] . " - " . $b['account_name']) ?> (Bal: <?= number_format($b['current_balance'], 2) ?>)
                                 </option>
                             <?php endwhile; endif; ?>
                         </select>
@@ -144,33 +151,24 @@ include '../../includes/header.php';
     </div>
 
     <div class="d-flex justify-content-between mb-4">
-        <button type="submit" class="btn btn-primary shadow-sm"><i class="fas fa-save"></i> Save Expense</button>
+        <button type="submit" class="btn btn-primary shadow-sm"><i class="fas fa-save"></i> Update Expense</button>
         <a href="list.php" class="btn btn-secondary shadow-sm"><i class="fas fa-times"></i> Cancel</a>
     </div>
 </form>
 
 <script>
-const pmSelect    = document.getElementById('payment_method');
-const bankGroup   = document.getElementById('bank_account_group');
-const bankSelect  = document.getElementById('bank_account_id');
-const acctLabel   = document.getElementById('acct_label');
+const pmSelect = document.getElementById('payment_method');
+const bankGroup = document.getElementById('bank_account_group');
+const bankSelect = document.getElementById('bank_account_id');
 
 function togglePaymentFields() {
-    const isCash = (pmSelect.value === 'Cash');
-    bankGroup.style.display = '';
-    bankSelect.required = true;
-    acctLabel.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
-
-    const wantType = isCash ? 'Cash' : 'Bank';
-    let firstMatch = null;
-    bankSelect.querySelectorAll('option[data-type]').forEach(opt => {
-        const show = (opt.dataset.type === wantType);
-        opt.style.display = show ? '' : 'none';
-        if (show && !firstMatch) firstMatch = opt.value;
-    });
-    const cur = bankSelect.querySelector('option:checked');
-    if (!cur || cur.style.display === 'none') {
-        bankSelect.value = firstMatch || '';
+    if (pmSelect.value === 'Bank') {
+        bankGroup.style.display = '';
+        bankSelect.required = true;
+    } else {
+        bankGroup.style.display = 'none';
+        bankSelect.required = false;
+        bankSelect.value = '';
     }
 }
 

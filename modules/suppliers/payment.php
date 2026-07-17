@@ -25,15 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->begin_transaction();
         try {
             if ($direction === 'to_supplier') {
-                // We pay supplier → our cash/bank goes OUT
-                $debit  = 0;
-                $credit = $amount;
+                // We pay supplier → debit (reduces our debt), our cash/bank goes OUT
+                $debit  = $amount;
+                $credit = 0;
                 $desc   = "Payment to supplier" . (!empty($reference_no) ? " (Ref: $reference_no)" : "") . (!empty($notes) ? " — $notes" : "");
                 $bal_change = -$amount; // money leaves our account
             } else {
-                // Supplier pays us → our cash/bank comes IN
-                $debit  = $amount;
-                $credit = 0;
+                // Supplier pays us → credit (reduces their claim), our cash/bank comes IN
+                $debit  = 0;
+                $credit = $amount;
                 $desc   = "Payment from supplier" . (!empty($reference_no) ? " (Ref: $reference_no)" : "") . (!empty($notes) ? " — $notes" : "");
                 $bal_change = $amount; // money enters our account
             }
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
 
             // 2. Recalculate and update running balance
-            $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal
+            $bal = $conn->query("SELECT COALESCE(SUM(credit),0) - COALESCE(SUM(debit),0) AS bal
                                  FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc();
             $running = $bal['bal'];
             $conn->query("UPDATE supplier_ledger SET balance = $running WHERE id = $entry_id");

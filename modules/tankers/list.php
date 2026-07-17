@@ -100,8 +100,8 @@ include '../../includes/header.php';
                             <td><?= htmlspecialchars($t['mobile'] ?: '-') ?></td>
                             <td><?= number_format($t['capacity'], 2) ?> L</td>
                             <td><?= htmlspecialchars($t['route_info'] ?: '-') ?></td>
-                            <td>
-                                <button class="btn btn-sm btn-warning" data-toggle="modal" data-target="#editModal"
+                            <td class="text-center" style="white-space:nowrap">
+                                <button class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#editModal"
                                     data-id="<?= $t['id'] ?>"
                                     data-number="<?= htmlspecialchars($t['tanker_number'], ENT_QUOTES) ?>"
                                     data-owner="<?= htmlspecialchars($t['owner_name'], ENT_QUOTES) ?>"
@@ -109,8 +109,8 @@ include '../../includes/header.php';
                                     data-mobile="<?= htmlspecialchars($t['mobile'], ENT_QUOTES) ?>"
                                     data-capacity="<?= $t['capacity'] ?>"
                                     data-route="<?= htmlspecialchars($t['route_info'], ENT_QUOTES) ?>"
-                                    title="Edit"><i class="fas fa-edit"></i></button>
-                                <button class="btn btn-sm btn-danger" onclick="confirmDelete(<?= $t['id'] ?>, '<?= htmlspecialchars($t['tanker_number'], ENT_QUOTES) ?>')" title="Delete"><i class="fas fa-trash"></i></button>
+                                    title="Edit"><i class="fas fa-pen"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= $t['id'] ?>, '<?= htmlspecialchars($t['tanker_number'], ENT_QUOTES) ?>')" title="Delete"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
                     <?php endwhile; endif; ?>

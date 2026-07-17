@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $description = "Sale Invoice #$invoice_no - $customer_name" . ($payment_type === 'Cash' ? " (Cash Received)" : " (On Credit)");
                 $stmt2 = $conn->prepare("INSERT INTO stock_ledger (tank_id, transaction_date, movement_type, reference_type, reference_id, bank_account_id, payment_method, quantity, rate, amount, balance_before, balance_before_value, balance_after, balance_after_value, description) VALUES (?, ?, 'OUT', 'sale', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt2->bind_param("isiiissddddddds", $tank_id, $sale_date, $sale_id, $bank_account_id, $payment_method, $quantity, $rate_per_ton, $total_amount, $bal_before, $val_before, $bal_after, $val_after, $description);
+                $stmt2->bind_param("isiisddddddds", $tank_id, $sale_date, $sale_id, $bank_account_id, $payment_method, $quantity, $rate_per_ton, $total_amount, $bal_before, $val_before, $bal_after, $val_after, $description);
                 $stmt2->execute();
                 $stmt2->close();
 
@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $cl_bal = $conn->query("SELECT COALESCE(SUM(debit)-SUM(credit),0) AS bal FROM customer_ledger WHERE customer_id = $customer_id")->fetch_assoc()['bal'];
                     $new_cl_balance = $cl_bal + $total_amount;
                     $stmt3 = $conn->prepare("INSERT INTO customer_ledger (customer_id, transaction_date, reference_type, reference_id, description, debit, credit, balance, bank_account_id, payment_method) VALUES (?, ?, 'sale', ?, ?, ?, 0, ?, ?, ?)");
-                    $stmt3->bind_param("isissdiss", $customer_id, $sale_date, $sale_id, $description, $total_amount, $new_cl_balance, $bank_account_id, $payment_method);
+                    $stmt3->bind_param("isisddis", $customer_id, $sale_date, $sale_id, $description, $total_amount, $new_cl_balance, $bank_account_id, $payment_method);
                     $stmt3->execute();
                     $stmt3->close();
                     
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $new_cl_bal_final = $cl_bal_after_sale - $total_amount;
                         $pay_desc = "Cash received against Sale #$invoice_no";
                         $stmt4 = $conn->prepare("INSERT INTO customer_ledger (customer_id, transaction_date, reference_type, reference_id, description, debit, credit, balance, bank_account_id, payment_method) VALUES (?, ?, 'payment', ?, ?, 0, ?, ?, ?, ?)");
-                        $stmt4->bind_param("isissdiss", $customer_id, $sale_date, $sale_id, $pay_desc, $total_amount, $new_cl_bal_final, $bank_account_id, $payment_method);
+                        $stmt4->bind_param("isisddis", $customer_id, $sale_date, $sale_id, $pay_desc, $total_amount, $new_cl_bal_final, $bank_account_id, $payment_method);
                         $stmt4->execute();
                         $stmt4->close();
                         $conn->query("UPDATE customers SET balance = $new_cl_bal_final WHERE id = $customer_id");

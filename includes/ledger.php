@@ -10,7 +10,7 @@ function postToLedger($conn, $supplier_id, $transaction_date, $description, $deb
     $stmt->execute();
     $stmt->close();
 
-    $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc();
+    $bal = $conn->query("SELECT COALESCE(SUM(credit),0) - COALESCE(SUM(debit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc();
     $running = $bal['bal'];
 
     $id = $conn->insert_id;

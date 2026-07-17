@@ -6,22 +6,20 @@ require_once '../../includes/db.php';
 $success = "";
 $error   = "";
 
-$customers     = $conn->query("SELECT id, customer_name, mobile FROM customers ORDER BY customer_name ASC");
-$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
-$tanks_res = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name");
+$customers  = $conn->query("SELECT id, customer_name, mobile FROM customers ORDER BY customer_name ASC");
+$tanks_res  = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name");
 $tanks_list = [];
 while($t = $tanks_res->fetch_assoc()) $tanks_list[] = $t;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $invoice_no      = trim($_POST['invoice_no']);
-    $sale_date       = $_POST['sale_date'];
-    $customer_id     = intval($_POST['customer_id'] ?? 0);
-    $customer_name   = trim($_POST['customer_name'] ?? '');
-    $mobile          = trim($_POST['mobile'] ?? '');
-    $payment_type    = $_POST['payment_status'] ?? 'Cash';
-    $paid_amount     = floatval($_POST['paid_amount'] ?? 0);
-    $payment_method  = trim($_POST['payment_method'] ?? 'Cash');
-    $bank_account_id = intval($_POST['bank_account_id'] ?? 0);
+    $invoice_no       = trim($_POST['invoice_no']);
+    $sale_date        = $_POST['sale_date'];
+    $customer_id      = intval($_POST['customer_id'] ?? 0);
+    $customer_name    = trim($_POST['customer_name'] ?? '');
+    $mobile           = trim($_POST['mobile'] ?? '');
+    $advance_payment  = floatval($_POST['advance_payment'] ?? 0);
+    $bank_account_id  = 0;
+    $payment_method   = 'Cash';
 
     // Resolve customer name for known customers
     if ($customer_id > 0) {
@@ -36,43 +34,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please select a customer or enter a walk-in name.";
     } elseif (!isset($_POST['tankers']) || count($_POST['tankers']) < 1) {
         $error = "Please add at least one tanker entry.";
-    } elseif ($payment_type !== 'Credit' && $bank_account_id <= 0) {
-        $error = "Please select a Cash or Bank account for the payment.";
     } else {
         $tankers = $_POST['tankers'];
         $total_qty = 0;
         $total_waste = 0;
         $total_net_qty = 0;
         $total_amount = 0;
-        $total_freight = 0;
-        $total_other = 0;
         $total_net = 0;
-        $all_vehicle_numbers = [];
         $all_driver_info = [];
 
         foreach ($tankers as $t) {
             $qty     = floatval($t['quantity'] ?? 0);
             $rate    = floatval($t['rate_per_ton'] ?? 0);
-            $freight = floatval($t['freight_charges'] ?? 0);
-            $other   = floatval($t['other_charges'] ?? 0);
-            // Calculate waste: (qty / 35) * 50 kg
-            $waste   = ($qty / 35) * 50;
+            $waste   = floatval($t['waste_kg'] ?? 0);
             $net_qty = $qty - ($waste / 1000);
             $t_amt   = $qty * $rate;
-            $t_net   = $t_amt + $freight + $other;
+            $t_net   = $t_amt;
 
             $total_qty     += $qty;
             $total_waste   += $waste;
             $total_net_qty += $net_qty;
             $total_amount  += $t_amt;
-            $total_freight += $freight;
-            $total_other   += $other;
             $total_net     += $t_net;
             
-            // Collect vehicle numbers and driver info for the main record
-            if (!empty($t['vehicle_number'])) {
-                $all_vehicle_numbers[] = trim($t['vehicle_number']);
-            }
             if (!empty($t['driver_name']) || !empty($t['driver_mobile'])) {
                 $driver_info = trim($t['driver_name'] ?? '') . ' - ' . trim($t['driver_mobile'] ?? '');
                 if ($driver_info != ' - ') {
@@ -82,11 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $weighted_rate = $total_qty > 0 ? $total_amount / $total_qty : 0;
-        $vehicle_number = implode(', ', array_unique($all_vehicle_numbers));
+        $vehicle_number = '';
         $driver_info = implode(', ', array_unique($all_driver_info));
 
         $conn->begin_transaction();
         try {
+            // Derive payment_type for display from advance_payment
+            $payment_type = $advance_payment >= $total_net ? 'Cash' : 'Credit';
+
             // Insert into customer_sales table
             $stmt = $conn->prepare("INSERT INTO customer_sales
                 (invoice_no, customer_id, customer_name, mobile, sale_date,
@@ -112,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $total_net_qty,
                 $weighted_rate,
                 $total_amount,
-                $total_freight,
-                $total_other,
+                0,
+                0,
                 $total_net,
                 $payment_type,
                 $payment_method,
@@ -150,9 +137,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $reference_id_val = $sale_id ? $sale_id : 0;
                         
                         // Use a simple insert with escaped values
+                        $acct_id_for_ledger = 0;
+                        $pm_for_ledger      = 'Cash';
                         $insert_sql = "INSERT INTO stock_ledger 
                             (tank_id, transaction_date, movement_type, reference_type, reference_id, 
-                             quantity, rate, amount, balance_before, balance_after, description) 
+                             quantity, rate, amount, balance_before, balance_after, description,
+                             bank_account_id, payment_method) 
                             VALUES (
                                 " . intval($tank_id) . ",
                                 '$sale_date',
@@ -164,7 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 " . floatval($t_amt) . ",
                                 " . floatval($bal_before) . ",
                                 " . floatval($bal_after) . ",
-                                '" . addslashes($stock_desc) . "'
+                                '" . addslashes($stock_desc) . "',
+                                " . $acct_id_for_ledger . ",
+                                '$pm_for_ledger'
                             )";
                         $conn->query($insert_sql);
                     }
@@ -186,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $zero = 0;
                 $s2->bind_param(
-                    "issddisiss",
+                    "issdddisis",
                     $customer_id,
                     $sale_date,
                     $desc,
@@ -202,27 +194,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $s2->close();
                 $conn->query("UPDATE customers SET balance=$new_bal WHERE id=$customer_id");
 
-                // If paid, record payment entry too
-                if ($payment_type !== 'Credit' && $paid_amount > 0) {
-                    $paid = min($paid_amount, $total_net);
+                // Advance Payment — customer pays us cash now (shows in Cash Book & customer ledger)
+                if ($advance_payment > 0) {
                     $bal_result2 = $conn->query("SELECT COALESCE(SUM(debit)-SUM(credit),0) AS b FROM customer_ledger WHERE customer_id=$customer_id");
                     $current_bal2 = $bal_result2->fetch_assoc()['b'] ?? 0;
-                    $new_bal2 = $current_bal2 - $paid;
-                    
-                    $desc2 = "Payment against Sale Invoice #$invoice_no";
+                    $new_bal2 = $current_bal2 - $advance_payment;
+
+                    $desc2 = "Advance Payment against Invoice #$invoice_no";
                     $ref_type2 = 'payment';
-                    
-                    $s3 = $conn->prepare("INSERT INTO customer_ledger 
-                        (customer_id, transaction_date, description, debit, credit, balance, reference_type, reference_id, bank_account_id, payment_method) 
+
+                    $s3 = $conn->prepare("INSERT INTO customer_ledger
+                        (customer_id, transaction_date, description, debit, credit, balance, reference_type, reference_id, bank_account_id, payment_method)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    
+
                     $s3->bind_param(
-                        "issddisiss",
+                        "issdddisis",
                         $customer_id,
                         $sale_date,
                         $desc2,
                         $zero,
-                        $paid,
+                        $advance_payment,
                         $new_bal2,
                         $ref_type2,
                         $sale_id,
@@ -232,8 +223,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $s3->execute();
                     $s3->close();
                     $conn->query("UPDATE customers SET balance=$new_bal2 WHERE id=$customer_id");
-                    // Update cash/bank balance
-                    $conn->query("UPDATE bank_accounts SET current_balance=current_balance+$paid WHERE id=$bank_account_id");
                 }
             }
 
@@ -247,7 +236,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$bank_accounts->data_seek(0);
 include '../../includes/header.php';
 ?>
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -286,16 +274,21 @@ include '../../includes/header.php';
             <div class="col-md-4">
                 <div class="form-group">
                     <label class="small font-weight-bold">Customer <span class="text-danger">*</span></label>
-                    <select name="customer_id" id="customer_select" class="form-control" required>
-                        <option value="">-- Select Customer --</option>
-                        <option value="0" <?= (isset($_POST['customer_id']) && $_POST['customer_id']=='0') ? 'selected':'' ?>>Walk-in Customer</option>
-                        <?php if ($customers && $customers->num_rows > 0): $customers->data_seek(0);
-                            while ($c = $customers->fetch_assoc()): ?>
-                        <option value="<?= $c['id'] ?>" data-mobile="<?= htmlspecialchars($c['mobile']??'') ?>"
-                            <?= (isset($_POST['customer_id']) && $_POST['customer_id']==$c['id']) ? 'selected':'' ?>>
-                            <?= htmlspecialchars($c['customer_name']) ?></option>
-                        <?php endwhile; endif; ?>
-                    </select>
+                    <div class="d-flex align-items-end">
+                        <select name="customer_id" id="customer_select" class="form-control" required>
+                            <option value="">-- Select Customer --</option>
+                            <option value="0" <?= (isset($_POST['customer_id']) && $_POST['customer_id']=='0') ? 'selected':'' ?>>Walk-in Customer</option>
+                            <?php if ($customers && $customers->num_rows > 0): $customers->data_seek(0);
+                                while ($c = $customers->fetch_assoc()): ?>
+                            <option value="<?= $c['id'] ?>" data-mobile="<?= htmlspecialchars($c['mobile']??'') ?>"
+                                <?= (isset($_POST['customer_id']) && $_POST['customer_id']==$c['id']) ? 'selected':'' ?>>
+                                <?= htmlspecialchars($c['customer_name']) ?></option>
+                            <?php endwhile; endif; ?>
+                        </select>
+                        <button type="button" class="btn btn-outline-primary btn-sm ml-2 mb-0" data-toggle="modal" data-target="#addCustomerModal" title="Add New Customer" style="height:38px;">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -317,43 +310,8 @@ include '../../includes/header.php';
         <div class="row border-top pt-3 mt-2">
             <div class="col-md-3">
                 <div class="form-group">
-                    <label class="small font-weight-bold">Payment Status <span class="text-danger">*</span></label>
-                    <select name="payment_status" id="payment_status" class="form-control">
-                        <option value="Cash"       <?= (($_POST['payment_status']??'Cash')==='Cash') ? 'selected':'' ?>>Cash</option>
-                        <option value="Credit"     <?= (($_POST['payment_status']??'')==='Credit') ? 'selected':'' ?>>Credit</option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3" id="paid_amount_group">
-                <div class="form-group">
-                    <label class="small font-weight-bold">Paid Amount ($)</label>
-                    <input type="number" step="0.01" min="0" name="paid_amount" id="paid_amount" class="form-control" value="<?= htmlspecialchars($_POST['paid_amount']??'0') ?>">
-                </div>
-            </div>
-            <div class="col-md-3" id="payment_method_group">
-                <div class="form-group">
-                    <label class="small font-weight-bold">Payment Method</label>
-                    <select name="payment_method" id="payment_method" class="form-control">
-                        <option value="Cash"          <?= (($_POST['payment_method']??'Cash')==='Cash') ? 'selected':'' ?>>Cash</option>
-                        <option value="Bank Transfer" <?= (($_POST['payment_method']??'')==='Bank Transfer') ? 'selected':'' ?>>Bank Transfer</option>
-                        <option value="Cheque"        <?= (($_POST['payment_method']??'')==='Cheque') ? 'selected':'' ?>>Cheque</option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3" id="account_group">
-                <div class="form-group">
-                    <label class="small font-weight-bold" id="acct_label">Cash Account <span class="text-danger">*</span></label>
-                    <select name="bank_account_id" id="bank_account_id" class="form-control">
-                        <option value="">-- Select Account --</option>
-                        <?php while ($b = $bank_accounts->fetch_assoc()):
-                            $disp = htmlspecialchars($b['account_name']);
-                            if ($b['bank_name']) $disp = htmlspecialchars($b['bank_name']).' — '.$disp;
-                            $disp .= ' | Bal: '.number_format($b['current_balance'],2); ?>
-                        <option value="<?= $b['id'] ?>" data-type="<?= $b['account_type'] ?>"
-                            <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id']==$b['id']) ? 'selected':'' ?>>
-                            [<?= $b['account_type'] ?>] <?= $disp ?></option>
-                        <?php endwhile; ?>
-                    </select>
+                    <label class="small font-weight-bold">Advance Payment ($)</label>
+                    <input type="number" step="0.01" min="0" name="advance_payment" id="advance_payment" class="form-control" value="<?= htmlspecialchars($_POST['advance_payment']??'0') ?>">
                 </div>
             </div>
         </div>
@@ -375,15 +333,11 @@ include '../../includes/header.php';
                         <th style="min-width:120px">Tanker No</th>
                         <th style="min-width:120px">Driver Name</th>
                         <th style="min-width:110px">Driver Mobile</th>
-                        <th style="min-width:110px">Vehicle No</th>
                         <th style="min-width:100px">Qty (Ton)</th>
                         <th style="min-width:90px">Waste (Kg)</th>
                         <th style="min-width:100px">Net Qty (Ton)</th>
                         <th style="min-width:90px">Rate/Ton</th>
-                        <th style="min-width:100px">Total</th>
-                        <th style="min-width:90px">Freight</th>
-                        <th style="min-width:90px">Other</th>
-                        <th style="min-width:100px">Net Amount</th>
+                        <th style="min-width:100px">Total ($)</th>
                         <th style="width:50px">Action</th>
                     </tr>
                 </thead>
@@ -400,15 +354,11 @@ include '../../includes/header.php';
                         <td><input type="text" name="tankers[0][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No"></td>
                         <td><input type="text" name="tankers[0][driver_name]" class="form-control form-control-sm" placeholder="Driver Name"></td>
                         <td><input type="text" name="tankers[0][driver_mobile]" class="form-control form-control-sm" placeholder="Mobile"></td>
-                        <td><input type="text" name="tankers[0][vehicle_number]" class="form-control form-control-sm" placeholder="Vehicle No"></td>
                         <td><input type="number" step="0.001" min="0" name="tankers[0][quantity]" class="form-control form-control-sm tanker-qty" required></td>
-                        <td><input type="text" class="form-control form-control-sm tanker-waste bg-light" readonly value="0.000"></td>
+                        <td><input type="number" step="0.001" min="0" name="tankers[0][waste_kg]" class="form-control form-control-sm tanker-waste" value="0.000"></td>
                         <td><input type="text" class="form-control form-control-sm tanker-net-qty bg-light" readonly value="0.000"></td>
                         <td><input type="number" step="0.01" min="0" name="tankers[0][rate_per_ton]" class="form-control form-control-sm tanker-rate" required></td>
                         <td><input type="text" class="form-control form-control-sm tanker-total bg-light" readonly value="0.00"></td>
-                        <td><input type="number" step="0.01" min="0" name="tankers[0][freight_charges]" class="form-control form-control-sm tanker-freight" value="0"></td>
-                        <td><input type="number" step="0.01" min="0" name="tankers[0][other_charges]" class="form-control form-control-sm tanker-other" value="0"></td>
-                        <td><input type="text" class="form-control form-control-sm tanker-net font-weight-bold bg-light" readonly value="0.00"></td>
                         <td class="text-center"><button type="button" class="btn btn-sm btn-danger remove-tanker" disabled><i class="fas fa-trash"></i></button></td>
                     </tr>
                 </tbody>
@@ -420,9 +370,6 @@ include '../../includes/header.php';
                         <th><span id="totalNetQty">0.000</span></th>
                         <th></th>
                         <th><span id="grandTotal">0.00</span></th>
-                        <th><span id="grandFreight">0.00</span></th>
-                        <th><span id="grandOther">0.00</span></th>
-                        <th><span id="grandNet">0.00</span></th>
                         <th></th>
                     </tr>
                 </tfoot>
@@ -444,45 +391,41 @@ const tanksOptions = `<?php foreach($tanks_list as $t): ?><option value="<?= $t[
 function calculateRow(row) {
     const qty     = parseFloat(row.querySelector('.tanker-qty').value)     || 0;
     const rate    = parseFloat(row.querySelector('.tanker-rate').value)    || 0;
-    const freight = parseFloat(row.querySelector('.tanker-freight').value) || 0;
-    const other   = parseFloat(row.querySelector('.tanker-other').value)   || 0;
-    // Calculate waste: (qty / 35) * 50 kg
-    const waste   = (qty / 35) * 50;
+    const wasteEl = row.querySelector('.tanker-waste');
+    let waste     = parseFloat(wasteEl.value) || 0;
     const netQty  = qty - (waste / 1000);
     const total   = qty * rate;
-    const net     = total + freight + other;
     
-    row.querySelector('.tanker-waste').value   = waste.toFixed(3);
     row.querySelector('.tanker-net-qty').value = netQty.toFixed(3);
     row.querySelector('.tanker-total').value   = total.toFixed(2);
-    row.querySelector('.tanker-net').value     = net.toFixed(2);
     calculateGrandTotals();
 }
 
+function autoFillWaste(row) {
+    const qty = parseFloat(row.querySelector('.tanker-qty').value) || 0;
+    const waste = (qty / 35) * 50;
+    row.querySelector('.tanker-waste').value = waste.toFixed(3);
+    calculateRow(row);
+}
+
 function calculateGrandTotals() {
-    let tQty=0, tWaste=0, tNetQty=0, gTotal=0, gFreight=0, gOther=0, gNet=0;
+    let tQty=0, tWaste=0, tNetQty=0, gTotal=0;
     document.querySelectorAll('#tankersBody .tanker-row').forEach(r => {
         tQty    += parseFloat(r.querySelector('.tanker-qty').value)     || 0;
         tWaste  += parseFloat(r.querySelector('.tanker-waste').value)   || 0;
         tNetQty += parseFloat(r.querySelector('.tanker-net-qty').value) || 0;
         gTotal  += parseFloat(r.querySelector('.tanker-total').value)   || 0;
-        gFreight+= parseFloat(r.querySelector('.tanker-freight').value) || 0;
-        gOther  += parseFloat(r.querySelector('.tanker-other').value)   || 0;
-        gNet    += parseFloat(r.querySelector('.tanker-net').value)     || 0;
     });
     document.getElementById('totalQty').textContent    = tQty.toFixed(3);
     document.getElementById('totalWaste').textContent  = tWaste.toFixed(3);
     document.getElementById('totalNetQty').textContent = tNetQty.toFixed(3);
     document.getElementById('grandTotal').textContent  = gTotal.toFixed(2);
-    document.getElementById('grandFreight').textContent= gFreight.toFixed(2);
-    document.getElementById('grandOther').textContent  = gOther.toFixed(2);
-    document.getElementById('grandNet').textContent    = gNet.toFixed(2);
 }
 
 function bindRow(row) {
-    row.querySelectorAll('.tanker-qty,.tanker-rate,.tanker-freight,.tanker-other').forEach(inp => {
-        inp.addEventListener('input', () => calculateRow(row));
-    });
+    row.querySelector('.tanker-qty').addEventListener('input', () => autoFillWaste(row));
+    row.querySelector('.tanker-rate').addEventListener('input', () => calculateRow(row));
+    row.querySelector('.tanker-waste').addEventListener('input', () => calculateRow(row));
     row.querySelector('.remove-tanker').addEventListener('click', () => { row.remove(); calculateGrandTotals(); });
 }
 
@@ -500,15 +443,11 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
         <td><input type="text" name="tankers[${i}][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No"></td>
         <td><input type="text" name="tankers[${i}][driver_name]" class="form-control form-control-sm" placeholder="Driver Name"></td>
         <td><input type="text" name="tankers[${i}][driver_mobile]" class="form-control form-control-sm" placeholder="Mobile"></td>
-        <td><input type="text" name="tankers[${i}][vehicle_number]" class="form-control form-control-sm" placeholder="Vehicle No"></td>
         <td><input type="number" step="0.001" min="0" name="tankers[${i}][quantity]" class="form-control form-control-sm tanker-qty" required></td>
-        <td><input type="text" class="form-control form-control-sm tanker-waste bg-light" readonly value="0.000"></td>
+        <td><input type="number" step="0.001" min="0" name="tankers[${i}][waste_kg]" class="form-control form-control-sm tanker-waste" value="0.000"></td>
         <td><input type="text" class="form-control form-control-sm tanker-net-qty bg-light" readonly value="0.000"></td>
         <td><input type="number" step="0.01" min="0" name="tankers[${i}][rate_per_ton]" class="form-control form-control-sm tanker-rate" required></td>
         <td><input type="text" class="form-control form-control-sm tanker-total bg-light" readonly value="0.00"></td>
-        <td><input type="number" step="0.01" min="0" name="tankers[${i}][freight_charges]" class="form-control form-control-sm tanker-freight" value="0"></td>
-        <td><input type="number" step="0.01" min="0" name="tankers[${i}][other_charges]" class="form-control form-control-sm tanker-other" value="0"></td>
-        <td><input type="text" class="form-control form-control-sm tanker-net font-weight-bold bg-light" readonly value="0.00"></td>
         <td class="text-center"><button type="button" class="btn btn-sm btn-danger remove-tanker"><i class="fas fa-trash"></i></button></td>`;
     document.getElementById('tankersBody').appendChild(tr);
     bindRow(tr);
@@ -527,43 +466,107 @@ custSel.addEventListener('change', function() {
     else { walkinGrp.style.display='none'; custNameInp.required=false; mobileInp.value=this.options[this.selectedIndex].dataset.mobile||''; }
 });
 (function(){ const v=custSel.value; if(v==='0'){walkinGrp.style.display='';custNameInp.required=true;}else{walkinGrp.style.display='none';custNameInp.required=false;} })();
-
-// Payment status / method / account
-const payStatus  = document.getElementById('payment_status');
-const paidAmtGrp = document.getElementById('paid_amount_group');
-const paidAmt    = document.getElementById('paid_amount');
-const pmSel      = document.getElementById('payment_method');
-const pmGrp      = document.getElementById('payment_method_group');
-const acctGrp    = document.getElementById('account_group');
-const acctSel    = document.getElementById('bank_account_id');
-const acctLbl    = document.getElementById('acct_label');
-
-function filterAccounts() {
-    const isCash = (pmSel.value === 'Cash');
-    acctLbl.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
-    let first = null;
-    acctSel.querySelectorAll('option[data-type]').forEach(o => {
-        const show = o.dataset.type === (isCash ? 'Cash' : 'Bank');
-        o.style.display = show ? '' : 'none';
-        if (show && !first) first = o.value;
-    });
-    const cur = acctSel.querySelector('option:checked');
-    if (!cur || cur.style.display==='none') acctSel.value = first || '';
-}
-
-function togglePayment() {
-    const isCredit = payStatus.value === 'Credit';
-    paidAmtGrp.style.display = isCredit ? 'none' : '';
-    pmGrp.style.display      = isCredit ? 'none' : '';
-    acctGrp.style.display    = isCredit ? 'none' : '';
-    acctSel.required         = !isCredit;
-    if (isCredit) { paidAmt.value=0; paidAmt.readOnly=true; }
-    else { paidAmt.readOnly=false; filterAccounts(); }
-}
-
-payStatus.addEventListener('change', togglePayment);
-pmSel.addEventListener('change', filterAccounts);
-togglePayment();
 </script>
 
 <?php include '../../includes/footer.php'; ?>
+
+<!-- Add Customer Modal -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-plus mr-1"></i> Add New Customer</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="customerAlert" class="alert d-none"></div>
+                <div class="form-group">
+                    <label class="small font-weight-bold">Customer Name <span class="text-danger">*</span></label>
+                    <input type="text" id="cust_name" class="form-control" placeholder="Customer name" required>
+                </div>
+                <div class="form-group">
+                    <label class="small font-weight-bold">Mobile</label>
+                    <input type="text" id="cust_mobile" class="form-control" placeholder="Mobile number">
+                </div>
+                <div class="form-group">
+                    <label class="small font-weight-bold">Address</label>
+                    <input type="text" id="cust_address" class="form-control" placeholder="Address">
+                </div>
+                <div class="form-group">
+                    <label class="small font-weight-bold">Opening Balance</label>
+                    <input type="number" step="0.01" id="cust_opening_balance" class="form-control" placeholder="0.00" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCustomerBtn"><i class="fas fa-save mr-1"></i> Save Customer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('saveCustomerBtn').addEventListener('click', function() {
+    const btn = this;
+    const name = document.getElementById('cust_name').value.trim();
+    if (!name) {
+        const alertEl = document.getElementById('customerAlert');
+        alertEl.className = 'alert alert-danger';
+        alertEl.textContent = 'Customer name is required.';
+        alertEl.classList.remove('d-none');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm mr-1"></span>Saving...';
+
+    const fd = new FormData();
+    fd.append('customer_name', name);
+    fd.append('mobile', document.getElementById('cust_mobile').value.trim());
+    fd.append('address', document.getElementById('cust_address').value.trim());
+    fd.append('opening_balance', document.getElementById('cust_opening_balance').value || 0);
+
+    fetch('ajax_add_customer.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save mr-1"></i> Save Customer';
+            if (res.success) {
+                const sel = document.getElementById('customer_select');
+                const opt = document.createElement('option');
+                opt.value = res.id;
+                opt.textContent = res.customer_name;
+                opt.dataset.mobile = res.mobile || '';
+                opt.selected = true;
+                // Insert before walk-in option
+                const walkinOpt = sel.querySelector('option[value="0"]');
+                sel.insertBefore(opt, walkinOpt);
+                // Clear form
+                document.getElementById('cust_name').value = '';
+                document.getElementById('cust_mobile').value = '';
+                document.getElementById('cust_address').value = '';
+                document.getElementById('customerAlert').classList.add('d-none');
+                // Trigger change to hide walk-in name group
+                sel.dispatchEvent(new Event('change'));
+                $('#addCustomerModal').modal('hide');
+            } else {
+                const alertEl = document.getElementById('customerAlert');
+                alertEl.className = 'alert alert-danger';
+                alertEl.textContent = res.message;
+                alertEl.classList.remove('d-none');
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save mr-1"></i> Save Customer';
+        });
+});
+
+$('#addCustomerModal').on('hidden.bs.modal', function() {
+    document.getElementById('cust_name').value = '';
+    document.getElementById('cust_mobile').value = '';
+    document.getElementById('cust_address').value = '';
+    document.getElementById('cust_opening_balance').value = '0';
+    document.getElementById('customerAlert').classList.add('d-none');
+});
+</script>

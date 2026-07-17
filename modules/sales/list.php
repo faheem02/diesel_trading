@@ -207,8 +207,13 @@ include '../../includes/header.php';
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Filter</button>
-                    <a href="list.php" class="btn btn-secondary"><i class="fas fa-redo"></i> Reset</a>
+                    <div class="form-group mb-0">
+                        <label class="small font-weight-bold">&nbsp;</label>
+                        <div>
+                            <button type="submit" class="btn btn-primary mr-1"><i class="fas fa-search"></i> Filter</button>
+                            <a href="list.php" class="btn btn-secondary"><i class="fas fa-redo"></i> Reset</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </form>
@@ -235,11 +240,12 @@ include '../../includes/header.php';
                         <th class="text-right">Other</th>
                         <th class="text-right">Net Profit</th>
                         <th>Payment</th>
+                        <th class="no-print">Print</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($sales_data)): ?>
-                        <tr><td colspan="11" class="text-center text-muted py-4">No sales found.</td></tr>
+                        <tr><td colspan="12" class="text-center text-muted py-4">No sales found.</td></tr>
                     <?php else:
                         $i = 1;
                         foreach ($sales_data as $sd):
@@ -269,6 +275,11 @@ include '../../includes/header.php';
                                 <?php if (!empty($row['payment_method']) && $row['payment_method'] != 'Cash'): ?>
                                     <small class="d-block text-muted"><?= htmlspecialchars($row['payment_method']) ?></small>
                                 <?php endif; ?>
+                            </td>
+                            <td class="no-print">
+                                <a href="print.php?id=<?= $row['id'] ?>" target="_blank" class="btn btn-sm btn-dark" title="Print Invoice">
+                                    <i class="fas fa-print"></i>
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>

@@ -1,9 +1,11 @@
 <?php
 session_start();
 $active_page = 'supplier_list';
+require_once '../../includes/config.php';
 require_once '../../includes/db.php';
 
 $search = trim($_GET['search'] ?? '');
+$print_mode = isset($_GET['print']) && $_GET['print'] == 1;
 
 $sql = "SELECT * FROM suppliers";
 $params = [];
@@ -24,6 +26,71 @@ if (!empty($params)) {
 }
 $stmt->execute();
 $result = $stmt->get_result();
+
+if ($print_mode) {
+    $logo = $base_url . "modules/logo/WhatsApp%20Image%202026-07-04%20at%201.20.58%20PM.jpeg";
+    ?><!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8"><title>Supplier List</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; padding: 30px; color: #333; }
+        .print-wrapper { max-width: 1100px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 40px 45px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .print-header { display: flex; align-items: center; gap: 20px; border-bottom: 3px solid #2C3E50; padding-bottom: 15px; margin-bottom: 20px; }
+        .print-header .logo { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 3px solid #F39C12; flex-shrink: 0; }
+        .print-header .logo img { width: 100%; height: 100%; object-fit: cover; }
+        .print-header .brand .company { font-size: 24px; font-weight: 900; color: #2C3E50; line-height: 1.2; }
+        .print-header .brand .sub { font-size: 12px; color: #F39C12; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
+        .print-header .brand .contact { font-size: 13px; color: #555; margin-top: 5px; }
+        .print-header .brand .contact i { color: #F39C12; font-style: normal; }
+        h2 { font-size: 22px; color: #2C3E50; font-weight: 700; margin-bottom: 5px; }
+        .subtitle { font-size: 13px; color: #888; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table thead th { background: #2C3E50; color: #fff; padding: 10px 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+        table thead th.text-right { text-align: right; }
+        table tbody td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+        table tbody td.text-right { text-align: right; }
+        .btn-print { display: inline-block; padding: 12px 40px; background: #2C3E50; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer; border: none; margin-top: 20px; }
+        .btn-print:hover { background: #1A252F; }
+        .btn-back { display: inline-block; padding: 12px 30px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; margin-left: 10px; }
+        @page { margin: 15mm; }
+        @media print { body { background: #fff; padding: 0; } .print-wrapper { box-shadow: none; border-radius: 0; padding: 20px 30px; } .no-print { display: none; } table thead th { background: #2C3E50 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style></head><body>
+    <div class="print-wrapper">
+        <div class="print-header">
+            <div class="logo"><img src="<?= $logo ?>" alt="Logo"></div>
+            <div class="brand">
+                <div class="company">Muhammad Younas</div>
+                <div class="sub">Diesel Management System</div>
+                <div class="contact"><i>&#9742;</i> +93 70 260 7159</div>
+            </div>
+        </div>
+        <h2>Supplier List</h2>
+        <?php if (!empty($search)): ?><div class="subtitle">Search: "<?= htmlspecialchars($search) ?>"</div><?php endif; ?>
+        <table>
+            <thead><tr><th>#</th><th>Company Name</th><th>Contact Person</th><th>Phone</th><th>NTN/CNIC</th><th class="text-right">Opening Balance</th><th class="text-right">Balance ($)</th></tr></thead>
+            <tbody>
+                <?php $i = 1; while ($row = $result->fetch_assoc()): ?>
+                <tr>
+                    <td><?= $i++ ?></td>
+                    <td><?= htmlspecialchars($row['company_name']) ?></td>
+                    <td><?= htmlspecialchars($row['contact_person'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['phone'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['ntn_cnic'] ?? '-') ?></td>
+                    <td class="text-right"><?= number_format($row['opening_balance'] ?? 0, 2) ?></td>
+                    <td class="text-right"><?= number_format($row['balance'], 2) ?></td>
+                </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+        <div class="no-print" style="text-align:center;margin-top:20px;">
+            <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+            <button class="btn-back" onclick="window.close()">Close</button>
+        </div>
+    </div>
+    <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+    </body></html>
+    <?php exit;
+}
 
 $delete_msg = '';
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
@@ -49,7 +116,7 @@ include '../../includes/header.php';
         <a href="add.php" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm mr-1">
             <i class="fas fa-plus-circle"></i> Add New Supplier
         </a>
-        <button onclick="window.print()" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm">
+        <button onclick="window.open('<?= $_SERVER['PHP_SELF'] ?>?search=<?= urlencode($search) ?>&print=1', '_blank', 'width=1100,height=700')" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm">
             <i class="fas fa-print"></i> Print
         </button>
     </div>

@@ -29,10 +29,7 @@ if (!empty($_GET['payment_status'])) {
 }
 
 $sql = "SELECT p.*, s.company_name,
-        (SELECT COUNT(*) FROM purchase_tankers WHERE purchase_id = p.id) AS tanker_count,
-        (SELECT COUNT(*) FROM purchase_returns WHERE purchase_id = p.id) AS return_count,
-        (SELECT COALESCE(SUM(return_amount),0) FROM purchase_returns WHERE purchase_id = p.id) AS return_total,
-        (SELECT COUNT(*) FROM purchase_adjustments WHERE purchase_id = p.id) AS adjustment_count
+        (SELECT COUNT(*) FROM purchase_tankers WHERE purchase_id = p.id) AS tanker_count
         FROM purchases p
         JOIN suppliers s ON p.supplier_id = s.id";
 
@@ -56,12 +53,6 @@ include '../../includes/header.php';
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-list mr-1"></i> Purchase List</h1>
     <div>
-        <a href="returns.php" class="d-none d-sm-inline-block btn btn-sm btn-warning shadow-sm mr-1">
-            <i class="fas fa-undo-alt"></i> Purchase Return
-        </a>
-        <a href="adjustments.php" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm mr-1">
-            <i class="fas fa-sliders-h"></i> Adjustment
-        </a>
         <a href="add.php" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm mr-1">
             <i class="fas fa-plus-circle"></i> New Purchase
         </a>
@@ -175,29 +166,17 @@ include '../../includes/header.php';
                                     <?php if ($remaining > 0): ?>
                                         <small class="d-block text-danger font-weight-bold">Due: $ <?= number_format($remaining, 0) ?></small>
                                     <?php endif; ?>
-                                    <?php if ($row['return_count'] > 0): ?>
-                                        <span class="badge badge-warning mt-1 d-inline-block" title="Returns">
-                                            <i class="fas fa-undo-alt"></i> <?= $row['return_count'] ?> Return<?= $row['return_count'] != 1 ? 's' : '' ?>
-                                        </span>
-                                    <?php endif; ?>
-                                    <?php if ($row['adjustment_count'] > 0): ?>
-                                        <span class="badge badge-info mt-1 d-inline-block" title="Adjustments">
-                                            <i class="fas fa-sliders-h"></i> <?= $row['adjustment_count'] ?> Adjustment<?= $row['adjustment_count'] != 1 ? 's' : '' ?>
-                                        </span>
-                                    <?php endif; ?>
                                 </td>
-                                <td class="text-center">
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="#" class="btn btn-info" data-toggle="modal" data-target="#tankerModal<?= $row['id'] ?>" title="View Tanker Details">
-                                            <i class="fas fa-eye"></i> View
-                                        </a>
-                                        <a href="returns.php?purchase_id=<?= $row['id'] ?>" class="btn btn-outline-warning" title="Return">
-                                            <i class="fas fa-undo-alt"></i>
-                                        </a>
-                                        <a href="adjustments.php?purchase_id=<?= $row['id'] ?>" class="btn btn-outline-secondary" title="Adjust">
-                                            <i class="fas fa-sliders-h"></i>
-                                        </a>
-                                    </div>
+                                <td class="text-center" style="white-space:nowrap">
+                                    <a href="edit.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+                                        <i class="fas fa-pen"></i>
+                                    </a>
+                                    <a href="print.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" title="Print">
+                                        <i class="fas fa-print"></i>
+                                    </a>
+                                    <a href="delete.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this purchase? This cannot be undone.')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -207,109 +186,6 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
-
-<?php
-$result->data_seek(0);
-while ($row = $result->fetch_assoc()):
-    $tid = $row['id'];
-    $tankers_q = $conn->prepare("SELECT * FROM purchase_tankers WHERE purchase_id = ?");
-    $tankers_q->bind_param("i", $tid);
-    $tankers_q->execute();
-    $tankers = $tankers_q->get_result();
-
-    $returns_q = $conn->prepare("SELECT * FROM purchase_returns WHERE purchase_id = ?");
-    $returns_q->bind_param("i", $tid);
-    $returns_q->execute();
-    $returns = $returns_q->get_result();
-?>
-
-<div class="modal fade" id="tankerModal<?= $tid ?>" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-truck text-primary mr-1"></i> Tankers - Invoice #<?= htmlspecialchars($row['invoice_no']) ?></h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body p-0">
-                <table class="table table-bordered mb-0">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>Tanker No</th>
-                            <th>Driver Name</th>
-                            <th>Driver Mobile</th>
-                            <th>Qty (Ton)</th>
-                            <!-- <th>Waste (Kg)</th> -->
-                            <!-- <th>Net (Ton)</th> -->
-                            <th>Rate</th>
-                            <th>Total</th>
-                            <th>Freight</th>
-                            <!-- <th>Other</th> -->
-                            <th>Net Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($tankers->num_rows === 0): ?>
-                            <tr><td colspan="11" class="text-center text-muted py-3">No tanker details available</td></tr>
-                        <?php else:
-                            while ($t = $tankers->fetch_assoc()): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($t['tanker_number']) ?></td>
-                                <td><?= htmlspecialchars($t['driver_name']) ?></td>
-                                <td><?= htmlspecialchars($t['driver_mobile']) ?></td>
-                                <td><?= number_format($t['diesel_quantity'], 3) ?></td>
-                               
-                                <td><?= number_format($t['rate_per_ton'], 2) ?></td>
-                                <td><?= number_format($t['total_amount'], 2) ?></td>
-                                <td><?= number_format($t['freight_charges'], 2) ?></td>
-                               
-                                <td class="font-weight-bold"><?= number_format($t['net_amount'], 2) ?></td>
-                            </tr>
-                        <?php endwhile; endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php if ($returns->num_rows > 0): ?>
-<div class="modal fade" id="returnModal<?= $tid ?>" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-undo-alt text-warning mr-1"></i> Returns - Invoice #<?= htmlspecialchars($row['invoice_no']) ?></h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body p-0">
-                <table class="table table-bordered mb-0">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>Qty Returned</th>
-                            <th>Rate</th>
-                            <th>Amount</th>
-                            <th>Reason</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($r = $returns->fetch_assoc()): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($r['return_date']) ?></td>
-                                <td><?= number_format($r['quantity_returned'], 3) ?></td>
-                                <td><?= number_format($r['rate_per_ton'], 2) ?></td>
-                                <td><?= number_format($r['return_amount'], 2) ?></td>
-                                <td><?= htmlspecialchars($r['reason'] ?: '-') ?></td>
-                            </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-<?php endif; ?>
-
-<?php endwhile; ?>
 
 <script>
 $(document).ready(function() {

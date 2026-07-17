@@ -57,6 +57,9 @@ $monthly_sales_qty = $conn->query("SELECT COALESCE(SUM(quantity),0) AS t FROM cu
 // 13. Monthly Profit
 $monthly_cogs = $monthly_sales_qty * $avg_cost_rate;
 $monthly_profit = $monthly_revenue - $monthly_cogs;
+
+// 14. Suppliers count (for Suppliers Overview card)
+$suppliers = $conn->query("SELECT COUNT(*) AS c FROM suppliers")->fetch_assoc()['c'];
 ?>
 <style>
 .card-dashboard .card-body { padding: 1.25rem; }
@@ -235,8 +238,11 @@ $monthly_profit = $monthly_revenue - $monthly_cogs;
                 <a href="modules/purchases/add.php" class="btn btn-primary btn-block mb-2">
                     <i class="fas fa-plus-circle"></i> New Purchase Entry
                 </a>
-                <a href="modules/purchases/list.php" class="btn btn-success btn-block">
-                    <i class="fas fa-list"></i> View Purchase List
+                <a href="modules/sales/add.php" class="btn btn-warning btn-block mb-2">
+                    <i class="fas fa-file-invoice-dollar"></i> Sale Entry
+                </a>
+                <a href="modules/diesel_stock/reports/stock_report.php" class="btn btn-info btn-block">
+                    <i class="fas fa-chart-line"></i> Stock Report
                 </a>
             </div>
         </div>
@@ -250,7 +256,7 @@ $monthly_profit = $monthly_revenue - $monthly_cogs;
                 <div class="row align-items-center">
                     <div class="col">
                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Registered Suppliers</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?= $conn->query("SELECT COUNT(*) AS c FROM suppliers")->fetch_assoc()['c'] ?></div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?= $suppliers ?></div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-truck fa-3x text-gray-300"></i>

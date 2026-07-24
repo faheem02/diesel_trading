@@ -13,31 +13,33 @@ $success = "";
 $error = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $sr_no        = trim($_POST['sr_no']);
-    $entry_date   = $_POST['entry_date'];
-    $person_name  = trim($_POST['person_name']);
-    $rate_per_ton = floatval($_POST['rate_per_ton'] ?? 0);
-    $quantity     = floatval($_POST['quantity'] ?? 0);
-    $total_amount = $rate_per_ton * $quantity;
-    $paid_amount  = floatval($_POST['paid_amount'] ?? 0);
-    $description  = trim($_POST['description'] ?? '');
+    $sr_no          = trim($_POST['sr_no']);
+    $entry_date     = $_POST['entry_date'];
+    $person_name    = trim($_POST['person_name']);
+    $description    = trim($_POST['description'] ?? '');
+    $quantity       = floatval($_POST['quantity'] ?? 0);
+    $rate_per_ton   = floatval($_POST['rate_per_ton'] ?? 0);
+    $total_amount   = $rate_per_ton * $quantity;
+    $paid_amount    = floatval($_POST['paid_amount'] ?? 0);
+    $payment_source = trim($_POST['payment_source'] ?? '');
 
     if (empty($sr_no) || empty($entry_date) || empty($person_name)) {
-        $error = "Please fill SR No, Date and Name.";
+        $error = "براہ کرم SR No، تاریخ اور نام درج کریں۔";
     } else {
-        $stmt = $conn->prepare("UPDATE manual_entries SET sr_no=?, entry_date=?, person_name=?, rate_per_ton=?, quantity=?, total_amount=?, paid_amount=?, description=? WHERE id=?");
-        $stmt->bind_param("sssdddssi", $sr_no, $entry_date, $person_name, $rate_per_ton, $quantity, $total_amount, $paid_amount, $description, $id);
+        $stmt = $conn->prepare("UPDATE manual_entries SET sr_no=?, entry_date=?, person_name=?, description=?, rate_per_ton=?, quantity=?, total_amount=?, paid_amount=?, payment_source=? WHERE id=?");
+        $stmt->bind_param("ssssdddsi", $sr_no, $entry_date, $person_name, $description, $rate_per_ton, $quantity, $total_amount, $paid_amount, $payment_source, $id);
         $stmt->execute();
         $stmt->close();
-        $success = "Entry updated successfully!";
+        $success = "اندراج کامیابی سے اپ ڈیٹ ہو گیا!";
         $row['sr_no'] = $sr_no;
         $row['entry_date'] = $entry_date;
         $row['person_name'] = $person_name;
+        $row['description'] = $description;
         $row['rate_per_ton'] = $rate_per_ton;
         $row['quantity'] = $quantity;
         $row['total_amount'] = $total_amount;
         $row['paid_amount'] = $paid_amount;
-        $row['description'] = $description;
+        $row['payment_source'] = $payment_source;
     }
 }
 
@@ -45,10 +47,10 @@ include '../../includes/header.php';
 ?>
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-edit mr-1"></i> Edit Entry</h1>
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-edit mr-1"></i> اندراج میں ترمیم</h1>
     <div>
         <a href="list.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
-            <i class="fas fa-list"></i> Back to List
+            <i class="fas fa-list"></i> فہرست واپس
         </a>
     </div>
 </div>
@@ -70,64 +72,88 @@ include '../../includes/header.php';
 <form method="POST">
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-file-invoice mr-1"></i> Edit Entry #<?= htmlspecialchars($row['sr_no']) ?></h6>
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-file-invoice mr-1"></i> اندراج #<?= htmlspecialchars($row['sr_no']) ?> — ترمیم</h6>
         </div>
         <div class="card-body">
             <div class="row">
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label class="small font-weight-bold">SR No <span class="text-danger">*</span></label>
+                        <label class="small font-weight-bold">SR نمبر <span class="text-danger">*</span></label>
                         <input type="text" name="sr_no" class="form-control" required
                                value="<?= htmlspecialchars($_POST['sr_no'] ?? $row['sr_no']) ?>">
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Date <span class="text-danger">*</span></label>
-                        <input type="date" name="entry_date" class="form-control" required
-                               value="<?= htmlspecialchars($_POST['entry_date'] ?? $row['entry_date']) ?>">
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Name <span class="text-danger">*</span></label>
-                        <input type="text" name="person_name" class="form-control" required placeholder="Person name"
+                        <label class="small font-weight-bold">نام <span class="text-danger">*</span></label>
+                        <input type="text" name="person_name" class="form-control" required placeholder="نام درج کریں"
                                value="<?= htmlspecialchars($_POST['person_name'] ?? $row['person_name']) ?>">
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Rate/Ton ($)</label>
-                        <input type="number" step="0.01" min="0" name="rate_per_ton" id="rate_per_ton" class="form-control"
-                               value="<?= htmlspecialchars($_POST['rate_per_ton'] ?? $row['rate_per_ton']) ?>">
+                        <label class="small font-weight-bold">تاریخ <span class="text-danger">*</span></label>
+                        <input type="date" name="entry_date" class="form-control" required
+                               value="<?= htmlspecialchars($_POST['entry_date'] ?? $row['entry_date']) ?>">
                     </div>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Quantity (Ton)</label>
-                        <input type="number" step="0.001" min="0" name="quantity" id="quantity" class="form-control"
-                               value="<?= htmlspecialchars($_POST['quantity'] ?? $row['quantity']) ?>">
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Total ($)</label>
-                        <input type="text" id="total_amount" class="form-control bg-light" readonly value="0.00">
+                        <label class="small font-weight-bold">تفصیل</label>
+                        <input type="text" name="description" class="form-control" placeholder="تفصیل درج کریں..."
+                               value="<?= htmlspecialchars($_POST['description'] ?? $row['description']) ?>">
                     </div>
                 </div>
             </div>
             <div class="row">
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Paid Amount ($)</label>
+                        <label class="small font-weight-bold">تعداد</label>
+                        <input type="number" step="0.001" min="0" name="quantity" id="quantity" class="form-control"
+                               value="<?= htmlspecialchars($_POST['quantity'] ?? $row['quantity']) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">فی دانہ</label>
+                        <input type="number" step="0.01" min="0" name="rate_per_ton" id="rate_per_ton" class="form-control"
+                               value="<?= htmlspecialchars($_POST['rate_per_ton'] ?? $row['rate_per_ton']) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">کل رقم</label>
+                        <input type="text" id="total_amount" class="form-control bg-light" readonly value="0.00">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">وصولی</label>
                         <input type="number" step="0.01" min="0" name="paid_amount" class="form-control"
                                value="<?= htmlspecialchars($_POST['paid_amount'] ?? $row['paid_amount']) ?>">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <div class="form-group">
-                        <label class="small font-weight-bold">Description</label>
-                        <textarea name="description" class="form-control" rows="2" placeholder="Optional notes..."><?= htmlspecialchars($_POST['description'] ?? $row['description']) ?></textarea>
+                        <label class="small font-weight-bold">زریعہ وصولی</label>
+                        <select name="payment_source" class="form-control">
+                            <option value="">-- منتخب کریں --</option>
+                            <?php $ps = $_POST['payment_source'] ?? $row['payment_source'] ?? ''; ?>
+                            <option value="نقد" <?= $ps === 'نقد' ? 'selected' : '' ?>>نقد</option>
+                            <option value="چیک" <?= $ps === 'چیک' ? 'selected' : '' ?>>چیک</option>
+                            <option value="ٹرانسفر" <?= $ps === 'ٹرانسفر' ? 'selected' : '' ?>>ٹرانسفر</option>
+                            <option value="آنلائن" <?= $ps === 'آنلائن' ? 'selected' : '' ?>>آنلائن</option>
+                            <option value="ایرٹیل" <?= $ps === 'ایرٹیل' ? 'selected' : '' ?>>ایرٹیل</option>
+                            <option value="اور" <?= $ps === 'اور' ? 'selected' : '' ?>>اور</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">باقی</label>
+                        <input type="text" id="balance_display" class="form-control bg-light" readonly value="0.00">
                     </div>
                 </div>
             </div>
@@ -136,25 +162,30 @@ include '../../includes/header.php';
 
     <div class="d-flex justify-content-between mb-4">
         <button type="submit" class="btn btn-primary btn-lg px-5 shadow">
-            <i class="fas fa-save mr-1"></i> Update Entry
+            <i class="fas fa-save mr-1"></i> تفصیل محفوظ کریں
         </button>
         <a href="list.php" class="btn btn-secondary btn-lg px-4 shadow">
-            <i class="fas fa-times mr-1"></i> Cancel
+            <i class="fas fa-times mr-1"></i> منسوخ
         </a>
     </div>
 </form>
 
 <script>
-document.getElementById('rate_per_ton').addEventListener('input', calcTotal);
-document.getElementById('quantity').addEventListener('input', calcTotal);
+document.getElementById('rate_per_ton').addEventListener('input', calcTotals);
+document.getElementById('quantity').addEventListener('input', calcTotals);
 
-function calcTotal() {
+function calcTotals() {
     const rate = parseFloat(document.getElementById('rate_per_ton').value) || 0;
     const qty  = parseFloat(document.getElementById('quantity').value) || 0;
-    document.getElementById('total_amount').value = (rate * qty).toFixed(2);
+    const total = rate * qty;
+    document.getElementById('total_amount').value = total.toFixed(2);
+    const paid = parseFloat(document.querySelector('[name="paid_amount"]').value) || 0;
+    document.getElementById('balance_display').value = (total - paid).toFixed(2);
 }
 
-calcTotal();
+document.querySelector('[name="paid_amount"]').addEventListener('input', calcTotals);
+
+calcTotals();
 </script>
 
 <?php include '../../includes/footer.php'; ?>

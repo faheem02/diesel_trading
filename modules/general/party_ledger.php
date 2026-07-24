@@ -185,7 +185,7 @@ include '../../includes/header.php';
         <div class="card border-left-warning shadow h-100 py-2">
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Total Payable (We Owe)</div>
+                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Paid by Younas</div>
                     <div class="h5 mb-0 font-weight-bold text-warning">$ <?= number_format($total_payable, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i></div>
@@ -196,7 +196,7 @@ include '../../includes/header.php';
         <div class="card border-left-success shadow h-100 py-2">
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Receivable (They Owe)</div>
+                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Received by Younas</div>
                     <div class="h5 mb-0 font-weight-bold text-success">$ <?= number_format($total_receivable, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div>
@@ -291,10 +291,20 @@ include '../../includes/header.php';
                         ?>
                         <tr class="<?= $is_opening ? 'table-info' : '' ?>">
                             <td><?= htmlspecialchars($e['transaction_date']) ?></td>
-                            <td class="<?= $is_opening ? 'font-weight-bold font-italic' : '' ?>"><?= htmlspecialchars($e['description']) ?></td>
-                            <td><span class="badge badge-secondary"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $e['reference_type']))) ?></span></td>
-                            <td class="text-right text-success font-weight-bold"><?= $e['debit'] > 0 ? number_format($e['debit'], 2) : '-' ?></td>
-                            <td class="text-right text-danger font-weight-bold"><?= $e['credit'] > 0 ? number_format($e['credit'], 2) : '-' ?></td>
+                            <?php
+                                $desc = $e['description'];
+                                if (strpos($desc, 'Payable:') === 0) $desc = 'Paid by Younas';
+                                elseif (strpos($desc, 'Receivable:') === 0) $desc = 'Received by Younas';
+                            ?>
+                            <td class="<?= $is_opening ? 'font-weight-bold font-italic' : '' ?>"><?= htmlspecialchars($desc) ?></td>
+                            <?php
+                                $type_label = ucfirst(str_replace('_', ' ', $e['reference_type']));
+                                $type_label = str_replace('Payable', 'Paid', $type_label);
+                                $type_label = str_replace('Receivable', 'Received', $type_label);
+                            ?>
+                            <td><span class="badge badge-secondary"><?= htmlspecialchars($type_label) ?></span></td>
+                            <td class="text-right text-danger font-weight-bold"><?= $e['debit'] > 0 ? number_format($e['debit'], 2) : '-' ?></td>
+                            <td class="text-right text-success font-weight-bold"><?= $e['credit'] > 0 ? number_format($e['credit'], 2) : '-' ?></td>
                             <td class="text-right font-weight-bold">$ <?= number_format($e['balance'], 2) ?></td>
                         </tr>
                     <?php endwhile; endif; ?>

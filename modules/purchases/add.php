@@ -6,6 +6,13 @@ require_once '../../includes/db.php';
 $success = "";
 $error = "";
 
+require_once '../../includes/tank_helper.php';
+$tanks_list = resolve_default_tank($conn);
+$single_tank = $tanks_list[0]; // default tank always exists (auto-created if table was empty)
+
+$max_inv = $conn->query("SELECT COALESCE(MAX(CAST(invoice_no AS UNSIGNED)),0)+1 AS next_inv FROM purchases")->fetch_assoc();
+$next_invoice = str_pad($max_inv['next_inv'], 4, '0', STR_PAD_LEFT);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $invoice_no        = trim($_POST['invoice_no']);
@@ -19,6 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please add at least one tanker entry.";
     } else {
         $tankers = $_POST['tankers'];
+        if ($single_tank) {
+            foreach ($tankers as &$t) { $t['tank_id'] = $single_tank['id']; }
+            unset($t);
+        }
         $total_qty = 0;
         $total_amount = 0;
         $total_freight = 0;
@@ -124,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ledger_credit = $total_net;
 
                 // 1. Always post the full invoice as credit (we owe supplier the full amount)
-                $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type) VALUES ($supplier_id, '$purchase_date', '$ledger_desc', 0, $ledger_credit, 0, 'purchase')");
+                $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type, reference_id) VALUES ($supplier_id, '$purchase_date', '$ledger_desc', 0, $ledger_credit, 0, 'purchase', $purchase_id)");
                 $entry_id = $conn->insert_id;
                 $bal = $conn->query("SELECT COALESCE(SUM(credit),0) - COALESCE(SUM(debit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
                 $conn->query("UPDATE supplier_ledger SET balance = $bal WHERE id = $entry_id");
@@ -157,9 +168,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $suppliers = $conn->query("SELECT id, company_name FROM suppliers ORDER BY company_name");
-$tanks_res = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name");
-$tanks_list = [];
-while($t = $tanks_res->fetch_assoc()) $tanks_list[] = $t;
 
 include '../../includes/header.php';
 ?>
@@ -198,7 +206,7 @@ include '../../includes/header.php';
                     <div class="form-group">
                         <label class="small font-weight-bold">Purchase Invoice No <span class="text-danger">*</span></label>
                         <input type="text" name="invoice_no" class="form-control" required
-                               value="<?= htmlspecialchars($_POST['invoice_no'] ?? '') ?>">
+                               value="<?= htmlspecialchars($_POST['invoice_no'] ?? $next_invoice) ?>">
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -252,7 +260,6 @@ include '../../includes/header.php';
                 <table class="table table-bordered mb-0" id="tankersTable">
                     <thead class="thead-light">
                         <tr>
-                            <th style="min-width:140px">Tank <span class="text-danger">*</span></th>
                             <th style="min-width:120px">Tanker No</th>
                             <th style="min-width:120px">Driver Name</th>
                             <th style="min-width:110px">Driver Mobile</th>
@@ -264,14 +271,7 @@ include '../../includes/header.php';
                     </thead>
                     <tbody id="tankersBody">
                         <tr class="tanker-row">
-                            <td>
-                                <select name="tankers[0][tank_id]" class="form-control form-control-sm" required>
-                                    <option value="">-- Tank --</option>
-                                    <?php foreach($tanks_list as $t): ?>
-                                        <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </td>
+                            <input type="hidden" name="tankers[0][tank_id]" value="<?= $single_tank['id'] ?>">
                             <td>
                                 <input type="text" name="tankers[0][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No">
                             </td>
@@ -299,7 +299,7 @@ include '../../includes/header.php';
                     </tbody>
                     <tfoot class="table-active">
                         <tr>
-                            <th colspan="4" class="text-right">Totals:</th>
+                            <th colspan="3" class="text-right">Totals:</th>
                             <th><span id="totalQty">0.000</span></th>
                             <th></th>
                             <th><span id="grandTotal">0.00</span></th>
@@ -323,7 +323,6 @@ include '../../includes/header.php';
 
 <script>
 let tankerIndex = 1;
-const tanksOptions = `<?php foreach($tanks_list as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option><?php endforeach; ?>`;
 
 function calculateRow(row) {
     const qty = parseFloat(row.querySelector('.tanker-qty').value) || 0;
@@ -354,12 +353,7 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
     row.className = 'tanker-row';
     const i = tankerIndex++;
     row.innerHTML = `
-        <td>
-            <select name="tankers[${i}][tank_id]" class="form-control form-control-sm" required>
-                <option value="">-- Tank --</option>
-                ${tanksOptions}
-            </select>
-        </td>
+        <input type="hidden" name="tankers[${i}][tank_id]" value="<?= $single_tank['id'] ?>">
         <td>
             <input type="text" name="tankers[${i}][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No">
         </td>

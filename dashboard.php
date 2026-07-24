@@ -12,8 +12,25 @@ include 'includes/header.php';
 $today = date('Y-m-d');
 $month_start = date('Y-m-01');
 
-// 1. Current Diesel Stock (Ton)
+// 1. Current Diesel Stock (Ton) + Avg Rate from stock_ledger
 $current_stock = $conn->query("SELECT COALESCE(SUM(current_stock),0) AS t FROM tanks")->fetch_assoc()['t'];
+
+$sl_rows = $conn->query("SELECT movement_type, quantity, amount, balance_after FROM stock_ledger ORDER BY transaction_date ASC, (reference_type = 'opening_balance') DESC, id ASC")->fetch_all(MYSQLI_ASSOC);
+$sl_qty = 0;
+$sl_value = 0;
+foreach ($sl_rows as $sr) {
+    if ($sr['movement_type'] === 'IN') {
+        $sl_qty   += $sr['quantity'];
+        $sl_value += $sr['amount'];
+    } elseif ($sr['movement_type'] === 'OUT') {
+        $sl_qty   -= $sr['quantity'];
+        $sl_value -= $sr['amount'];
+    } else {
+        $sl_qty   = $sr['balance_after'];
+        $sl_value = $sr['balance_after_value'] ?? $sl_value;
+    }
+}
+$stock_avg_rate = $sl_qty > 0 ? $sl_value / $sl_qty : 0;
 
 // 2. Today's Purchase (Qty)
 $today_purchase = $conn->query("SELECT COALESCE(SUM(diesel_quantity),0) AS t FROM purchases WHERE purchase_date = '$today'")->fetch_assoc()['t'];
@@ -45,10 +62,7 @@ $total_payables = abs($conn->query("SELECT COALESCE(SUM(CASE WHEN balance < 0 TH
 // 9. Cash Balance
 $cash_balance = $conn->query("SELECT COALESCE(SUM(current_balance),0) AS t FROM bank_accounts WHERE account_type = 'Cash'")->fetch_assoc()['t'];
 
-// 10. Bank Balance
-$bank_balance = $conn->query("SELECT COALESCE(SUM(current_balance),0) AS t FROM bank_accounts WHERE account_type = 'Bank'")->fetch_assoc()['t'];
-
-// 11. Monthly Revenue
+// 10. Monthly Revenue
 $monthly_revenue = $conn->query("SELECT COALESCE(SUM(total_amount),0) AS t FROM customer_sales WHERE sale_date >= '$month_start' AND sale_date <= '$today'")->fetch_assoc()['t'];
 
 // 12. Monthly Sales Qty
@@ -77,6 +91,7 @@ $suppliers = $conn->query("SELECT COUNT(*) AS c FROM suppliers")->fetch_assoc()[
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Current Diesel Stock (Ton)</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($current_stock, 3) ?></div>
+                        <div class="text-xs font-weight-bold text-success mt-1">Avg Rate: $<?= number_format($stock_avg_rate, 2) ?>/ton</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-oil-can fa-2x text-gray-300"></i>
@@ -173,21 +188,6 @@ $suppliers = $conn->query("SELECT COUNT(*) AS c FROM suppliers")->fetch_assoc()[
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card border-left-primary shadow h-100 py-2 card-dashboard">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Bank Balance</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($bank_balance, 0) ?></div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-university fa-2x text-gray-300"></i>
                     </div>
                 </div>
             </div>

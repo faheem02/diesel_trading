@@ -10,9 +10,6 @@ if (!$expense) { header("Location: list.php"); exit; }
 
 $conn->begin_transaction();
 try {
-    if ($expense['bank_account_id']) {
-        $conn->query("UPDATE bank_accounts SET current_balance = current_balance + {$expense['amount']} WHERE id = {$expense['bank_account_id']}");
-    }
     $conn->query("DELETE FROM expenses WHERE id = $id");
     $conn->commit();
     header("Location: list.php?deleted=1");

@@ -6,10 +6,12 @@ require_once '../../includes/db.php';
 $success = "";
 $error = "";
 
-$tanks = $conn->query("SELECT id, tank_name, current_stock FROM tanks ORDER BY tank_name ASC");
+require_once '../../includes/tank_helper.php';
+$tanks_arr = resolve_default_tank($conn);
+$single_tank = $tanks_arr[0]; // default tank always exists (auto-created if table was empty)
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $tank_id         = intval($_POST['tank_id']);
+    $tank_id         = intval($single_tank['id']);
     $adjustment_date = $_POST['adjustment_date'] ?? date('Y-m-d');
     $adjustment_type = $_POST['adjustment_type'] ?? '';
     $direction       = $_POST['direction'] ?? 'remove'; // 'add' or 'remove'
@@ -54,7 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-    $tanks = $conn->query("SELECT id, tank_name, current_stock FROM tanks ORDER BY tank_name ASC");
+    $tanks_arr = resolve_default_tank($conn);
+    $single_tank = $tanks_arr[0];
 }
 
 include '../../includes/header.php';
@@ -96,20 +99,7 @@ include '../../includes/header.php';
                                value="<?= htmlspecialchars($_POST['adjustment_date'] ?? date('Y-m-d')) ?>">
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Tank <span class="text-danger">*</span></label>
-                        <select name="tank_id" class="form-control" required>
-                            <option value="">-- Select Tank --</option>
-                            <?php while ($t = $tanks->fetch_assoc()): ?>
-                                <option value="<?= $t['id'] ?>"
-                                    <?= (isset($_POST['tank_id']) && $_POST['tank_id'] == $t['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($t['tank_name']) ?> (Stock: <?= number_format($t['current_stock'], 3) ?>)
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" name="tank_id" value="<?= $single_tank['id'] ?>">
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="small font-weight-bold">Adjustment Type <span class="text-danger">*</span></label>

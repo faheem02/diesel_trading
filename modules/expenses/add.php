@@ -11,29 +11,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $expense_type    = trim($_POST['expense_type'] ?? '');
     $amount          = floatval($_POST['amount'] ?? 0);
     $description     = trim($_POST['description'] ?? '');
-    $payment_method  = trim($_POST['payment_method'] ?? 'Cash');
-    $bank_account_id = intval($_POST['bank_account_id'] ?? 0);
 
     if (empty($expense_date) || empty($expense_type) || $amount <= 0) {
         $error = "Please fill all required fields.";
     } else {
-        if ($payment_method === 'Cash' && $bank_account_id <= 0) {
-            $cash_acc = $conn->query("SELECT id FROM bank_accounts WHERE account_type = 'Cash' LIMIT 1")->fetch_assoc();
-            if ($cash_acc) $bank_account_id = $cash_acc['id'];
-        }
-
-        $bank_id = $bank_account_id > 0 ? $bank_account_id : null;
-
         $conn->begin_transaction();
         try {
-            $stmt = $conn->prepare("INSERT INTO expenses (expense_date, category, subcategory, amount, description, payment_method, bank_account_id) VALUES (?, ?, '', ?, ?, ?, ?)");
-            $stmt->bind_param("sssdsi", $expense_date, $expense_type, $amount, $description, $payment_method, $bank_id);
+            $stmt = $conn->prepare("INSERT INTO expenses (expense_date, category, subcategory, amount, description, payment_method, bank_account_id) VALUES (?, ?, '', ?, ?, 'Cash', 0)");
+            $stmt->bind_param("ssds", $expense_date, $expense_type, $amount, $description);
             $stmt->execute();
             $stmt->close();
-
-            if ($bank_id) {
-                $conn->query("UPDATE bank_accounts SET current_balance = current_balance - $amount WHERE id = $bank_account_id");
-            }
 
             $conn->commit();
             $success = "Expense recorded successfully!";
@@ -44,8 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
-$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
 
 include '../../includes/header.php';
 ?>
@@ -108,38 +93,6 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Payment Method</label>
-                        <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash" <?= (!isset($_POST['payment_method']) || $_POST['payment_method']==='Cash') ? 'selected':'' ?>>Cash</option>
-                            <option value="Bank" <?= (isset($_POST['payment_method']) && $_POST['payment_method']==='Bank') ? 'selected':'' ?>>Bank</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-4" id="bank_account_group">
-                    <div class="form-group">
-                        <label class="small font-weight-bold" id="acct_label">Select Account <span class="text-danger">*</span></label>
-                        <select name="bank_account_id" id="bank_account_id" class="form-control">
-                            <option value="">-- Select Account --</option>
-                            <?php if ($bank_accounts && $bank_accounts->num_rows > 0):
-                                $bank_accounts->data_seek(0);
-                                while ($b = $bank_accounts->fetch_assoc()):
-                                    $disp = htmlspecialchars($b['account_name']);
-                                    if ($b['bank_name']) $disp = htmlspecialchars($b['bank_name']) . ' — ' . $disp;
-                                    if ($b['account_number']) $disp .= ' (' . htmlspecialchars($b['account_number']) . ')';
-                                    $disp .= ' | Bal: ' . number_format($b['current_balance'], 2); ?>
-                                <option value="<?= $b['id'] ?>"
-                                    data-type="<?= $b['account_type'] ?>"
-                                    <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
-                                    [<?= $b['account_type'] ?>] <?= $disp ?>
-                                </option>
-                            <?php endwhile; endif; ?>
-                        </select>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -148,34 +101,5 @@ include '../../includes/header.php';
         <a href="list.php" class="btn btn-secondary shadow-sm"><i class="fas fa-times"></i> Cancel</a>
     </div>
 </form>
-
-<script>
-const pmSelect    = document.getElementById('payment_method');
-const bankGroup   = document.getElementById('bank_account_group');
-const bankSelect  = document.getElementById('bank_account_id');
-const acctLabel   = document.getElementById('acct_label');
-
-function togglePaymentFields() {
-    const isCash = (pmSelect.value === 'Cash');
-    bankGroup.style.display = '';
-    bankSelect.required = true;
-    acctLabel.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
-
-    const wantType = isCash ? 'Cash' : 'Bank';
-    let firstMatch = null;
-    bankSelect.querySelectorAll('option[data-type]').forEach(opt => {
-        const show = (opt.dataset.type === wantType);
-        opt.style.display = show ? '' : 'none';
-        if (show && !firstMatch) firstMatch = opt.value;
-    });
-    const cur = bankSelect.querySelector('option:checked');
-    if (!cur || cur.style.display === 'none') {
-        bankSelect.value = firstMatch || '';
-    }
-}
-
-pmSelect.addEventListener('change', togglePaymentFields);
-togglePaymentFields();
-</script>
 
 <?php include '../../includes/footer.php'; ?>

@@ -99,13 +99,12 @@ include '../../includes/header.php';
                         <th>Expense Type</th>
                         <th>Amount ($)</th>
                         <th>Description</th>
-                        <th>Payment</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows === 0): ?>
-                        <tr><td colspan="7" class="text-center text-muted py-4">No expenses found.</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-4">No expenses found.</td></tr>
                     <?php else:
                         $i = 1;
                         while ($row = $result->fetch_assoc()): ?>
@@ -115,7 +114,6 @@ include '../../includes/header.php';
                             <td><span class="badge badge-secondary"><?= htmlspecialchars($row['category']) ?></span></td>
                             <td class="font-weight-bold text-danger"><?= number_format($row['amount'], 2) ?></td>
                             <td><?= htmlspecialchars($row['description'] ?: '-') ?></td>
-                            <td><small class="text-muted"><?= htmlspecialchars($row['payment_method'] ?? 'Cash') ?></small></td>
                             <td class="text-center" style="white-space:nowrap">
                                 <a href="edit.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-pen"></i></a>
                                 <a href="delete.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this expense?')"><i class="fas fa-trash"></i></a>

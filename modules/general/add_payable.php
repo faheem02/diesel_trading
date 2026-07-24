@@ -20,8 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $current_bal = $conn->query("SELECT balance FROM personal_accounts WHERE id = $account_id")->fetch_assoc()['balance'] ?? 0;
             $new_balance = $current_bal - $amount;
 
-            $desc = "Payable: " . ($description ?: "Payment to party");
-            $stmt = $conn->prepare("INSERT INTO personal_ledger (account_id, transaction_date, description, debit, credit, balance, reference_type, payment_method, bank_account_id) VALUES (?, ?, ?, 0, ?, ?, 'payable', 'Cash', NULL)");
+            $desc = "Payable: " . ($description ?: "Paid by Younas");
+            $stmt = $conn->prepare("INSERT INTO personal_ledger (account_id, transaction_date, description, debit, credit, balance, reference_type, payment_method, bank_account_id) VALUES (?, ?, ?, ?, 0, ?, 'payable', 'Cash', NULL)");
             $stmt->bind_param("issdd", $account_id, $txn_date, $desc, $amount, $new_balance);
             if (!$stmt->execute()) {
                 throw new Exception("Insert failed: " . $stmt->error);

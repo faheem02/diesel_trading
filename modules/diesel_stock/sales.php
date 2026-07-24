@@ -1,19 +1,22 @@
 <?php
 session_start();
-$active_page = 'sale_add';
-require_once '../../includes/db.php';
+require_once '../../includes/config.php';
+header("Location: {$base_url}modules/sales/add.php");
+exit;
 
 $success = "";
 $error = "";
 
 $tanks = $conn->query("SELECT id, tank_name, current_stock FROM tanks ORDER BY tank_name ASC");
+$tanks_arr = [];
+while ($row = $tanks->fetch_assoc()) $tanks_arr[] = $row;
+$single_tank = (count($tanks_arr) === 1) ? $tanks_arr[0] : null;
 $customers_list = $conn->query("SELECT id, customer_name, mobile FROM customers ORDER BY customer_name ASC");
-$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $invoice_no       = trim($_POST['invoice_no']);
     $sale_date        = $_POST['sale_date'];
-    $tank_id          = intval($_POST['tank_id']);
+    $tank_id          = $single_tank ? intval($single_tank['id']) : intval($_POST['tank_id']);
     $customer_id      = intval($_POST['customer_id'] ?? 0);
     $customer_name    = trim($_POST['customer_name'] ?? '');
     $customer_mobile  = trim($_POST['customer_mobile'] ?? '');
@@ -32,8 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $quantity         = floatval($_POST['quantity'] ?? 0);
     $rate_per_ton     = floatval($_POST['rate_per_ton'] ?? 0);
     $payment_type     = $_POST['payment_type'] ?? 'Cash';
-    $bank_account_id  = intval($_POST['bank_account_id'] ?? 0);
-    $payment_method   = trim($_POST['payment_method'] ?? 'Cash');
 
     if (empty($invoice_no) || empty($sale_date) || $tank_id <= 0 || $quantity <= 0 || $rate_per_ton <= 0) {
         $error = "Please fill all required fields with valid values.";
@@ -43,13 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please select a customer.";
     } else {
         $total_amount = $quantity * $rate_per_ton;
-        
-        // If Cash Sale is selected, ensure we use the cash account ID
-        if ($payment_type === 'Cash' && $bank_account_id <= 0) {
-            $cash_acc = $conn->query("SELECT id FROM bank_accounts WHERE account_type = 'Cash' LIMIT 1")->fetch_assoc();
-            if ($cash_acc) $bank_account_id = $cash_acc['id'];
-        }
-        
 
         $tank = $conn->query("SELECT current_stock FROM tanks WHERE id = $tank_id")->fetch_assoc();
         if (!$tank) {
@@ -67,34 +61,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->begin_transaction();
             try {
                 if ($customer_id > 0) {
-                    $stmt = $conn->prepare("INSERT INTO sales (invoice_no, sale_date, tank_id, customer_id, customer_name, customer_mobile, vehicle_number, quantity, rate_per_ton, total_amount, payment_type, bank_account_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("ssiisssdddsis", $invoice_no, $sale_date, $tank_id, $customer_id, $customer_name, $customer_mobile, $vehicle_number, $quantity, $rate_per_ton, $total_amount, $payment_type, $bank_account_id, $payment_method);
+                    $stmt = $conn->prepare("INSERT INTO sales (invoice_no, sale_date, tank_id, customer_id, customer_name, customer_mobile, vehicle_number, quantity, rate_per_ton, total_amount, payment_type, bank_account_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'Cash')");
+                    $stmt->bind_param("ssiisssddds", $invoice_no, $sale_date, $tank_id, $customer_id, $customer_name, $customer_mobile, $vehicle_number, $quantity, $rate_per_ton, $total_amount, $payment_type);
                 } else {
-                    $stmt = $conn->prepare("INSERT INTO sales (invoice_no, sale_date, tank_id, customer_name, customer_mobile, vehicle_number, quantity, rate_per_ton, total_amount, payment_type, bank_account_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("ssisssdddsis", $invoice_no, $sale_date, $tank_id, $customer_name, $customer_mobile, $vehicle_number, $quantity, $rate_per_ton, $total_amount, $payment_type, $bank_account_id, $payment_method);
+                    $stmt = $conn->prepare("INSERT INTO sales (invoice_no, sale_date, tank_id, customer_name, customer_mobile, vehicle_number, quantity, rate_per_ton, total_amount, payment_type, bank_account_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'Cash')");
+                    $stmt->bind_param("ssisssddds", $invoice_no, $sale_date, $tank_id, $customer_name, $customer_mobile, $vehicle_number, $quantity, $rate_per_ton, $total_amount, $payment_type);
                 }
                 $stmt->execute();
                 $sale_id = $conn->insert_id;
                 $stmt->close();
 
                 $description = "Sale Invoice #$invoice_no - $customer_name" . ($payment_type === 'Cash' ? " (Cash Received)" : " (On Credit)");
-                $stmt2 = $conn->prepare("INSERT INTO stock_ledger (tank_id, transaction_date, movement_type, reference_type, reference_id, bank_account_id, payment_method, quantity, rate, amount, balance_before, balance_before_value, balance_after, balance_after_value, description) VALUES (?, ?, 'OUT', 'sale', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt2->bind_param("isiisddddddds", $tank_id, $sale_date, $sale_id, $bank_account_id, $payment_method, $quantity, $rate_per_ton, $total_amount, $bal_before, $val_before, $bal_after, $val_after, $description);
+                $stmt2 = $conn->prepare("INSERT INTO stock_ledger (tank_id, transaction_date, movement_type, reference_type, reference_id, bank_account_id, payment_method, quantity, rate, amount, balance_before, balance_before_value, balance_after, balance_after_value, description) VALUES (?, ?, 'OUT', 'sale', ?, 0, 'Cash', ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt2->bind_param("isiddddddss", $tank_id, $sale_date, $sale_id, $quantity, $rate_per_ton, $total_amount, $bal_before, $val_before, $bal_after, $val_after, $description);
                 $stmt2->execute();
                 $stmt2->close();
 
                 $conn->query("UPDATE tanks SET current_stock = $bal_after WHERE id = $tank_id");
 
-                // If Cash, update Bank Account balance
-                if ($payment_type === 'Cash' && $bank_account_id > 0) {
-                    $conn->query("UPDATE bank_accounts SET current_balance = current_balance + $total_amount WHERE id = $bank_account_id");
-                }
-
                 if ($customer_id > 0) {
                     $cl_bal = $conn->query("SELECT COALESCE(SUM(debit)-SUM(credit),0) AS bal FROM customer_ledger WHERE customer_id = $customer_id")->fetch_assoc()['bal'];
                     $new_cl_balance = $cl_bal + $total_amount;
-                    $stmt3 = $conn->prepare("INSERT INTO customer_ledger (customer_id, transaction_date, reference_type, reference_id, description, debit, credit, balance, bank_account_id, payment_method) VALUES (?, ?, 'sale', ?, ?, ?, 0, ?, ?, ?)");
-                    $stmt3->bind_param("isisddis", $customer_id, $sale_date, $sale_id, $description, $total_amount, $new_cl_balance, $bank_account_id, $payment_method);
+                    $stmt3 = $conn->prepare("INSERT INTO customer_ledger (customer_id, transaction_date, reference_type, reference_id, description, debit, credit, balance, bank_account_id, payment_method) VALUES (?, ?, 'sale', ?, ?, ?, 0, ?, NULL, 'Cash')");
+                    $stmt3->bind_param("isisdd", $customer_id, $sale_date, $sale_id, $description, $total_amount, $new_cl_balance);
                     $stmt3->execute();
                     $stmt3->close();
                     
@@ -103,8 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $cl_bal_after_sale = $conn->query("SELECT COALESCE(SUM(debit)-SUM(credit),0) AS bal FROM customer_ledger WHERE customer_id = $customer_id")->fetch_assoc()['bal'];
                         $new_cl_bal_final = $cl_bal_after_sale - $total_amount;
                         $pay_desc = "Cash received against Sale #$invoice_no";
-                        $stmt4 = $conn->prepare("INSERT INTO customer_ledger (customer_id, transaction_date, reference_type, reference_id, description, debit, credit, balance, bank_account_id, payment_method) VALUES (?, ?, 'payment', ?, ?, 0, ?, ?, ?, ?)");
-                        $stmt4->bind_param("isisddis", $customer_id, $sale_date, $sale_id, $pay_desc, $total_amount, $new_cl_bal_final, $bank_account_id, $payment_method);
+                        $stmt4 = $conn->prepare("INSERT INTO customer_ledger (customer_id, transaction_date, reference_type, reference_id, description, debit, credit, balance, bank_account_id, payment_method) VALUES (?, ?, 'payment', ?, ?, 0, ?, ?, NULL, 'Cash')");
+                        $stmt4->bind_param("isisdd", $customer_id, $sale_date, $sale_id, $pay_desc, $total_amount, $new_cl_bal_final);
                         $stmt4->execute();
                         $stmt4->close();
                         $conn->query("UPDATE customers SET balance = $new_cl_bal_final WHERE id = $customer_id");
@@ -175,20 +164,7 @@ include '../../includes/header.php';
                                value="<?= htmlspecialchars($_POST['sale_date'] ?? date('Y-m-d')) ?>">
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Tank <span class="text-danger">*</span></label>
-                        <select name="tank_id" class="form-control" required>
-                            <option value="">-- Select Tank --</option>
-                            <?php while ($t = $tanks->fetch_assoc()): ?>
-                                <option value="<?= $t['id'] ?>"
-                                    <?= (isset($_POST['tank_id']) && $_POST['tank_id'] == $t['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($t['tank_name']) ?> (Stock: <?= number_format($t['current_stock'], 3) ?>)
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" name="tank_id" value="<?= $single_tank ? $single_tank['id'] : 1 ?>">
             </div>
             <div class="row">
                 <div class="col-md-4">
@@ -267,32 +243,6 @@ include '../../includes/header.php';
                         </select>
                     </div>
                 </div>
-                <div class="col-md-4" id="method_field">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Payment Method</label>
-                        <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash" <?= (isset($_POST['payment_method']) && $_POST['payment_method']=='Cash') ? 'selected':'' ?>>Cash</option>
-                            <option value="Bank" <?= (isset($_POST['payment_method']) && $_POST['payment_method']=='Bank') ? 'selected':'' ?>>Bank</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-4" id="bank_account_group">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Deposit to Bank Account <span class="text-danger">*</span></label>
-                        <select name="bank_account_id" id="bank_account_id" class="form-control">
-                            <option value="">-- Select Bank --</option>
-                            <?php if ($bank_accounts && $bank_accounts->num_rows > 0):
-                                $bank_accounts->data_seek(0);
-                                while ($b = $bank_accounts->fetch_assoc()): 
-                                    if($b['account_type'] !== 'Bank') continue; ?>
-                                <option value="<?= $b['id'] ?>"
-                                    <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($b['bank_name'] . " - " . $b['account_name']) ?> (Bal: <?= number_format($b['current_balance'], 2) ?>)
-                                </option>
-                            <?php endwhile; endif; ?>
-                        </select>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -353,37 +303,6 @@ function calcTotal() {
     document.getElementById('total_amount').value = (qty * rate).toFixed(2);
 }
 
-const payType = document.getElementById('payment_type');
-const metField = document.getElementById('method_field');
-const bankGroup = document.getElementById('bank_account_group');
-const pmSelect = document.getElementById('payment_method');
-const bankSelect = document.getElementById('bank_account_id');
-
-function toggleFields() {
-    if (payType.value === 'Credit') {
-        metField.style.display = 'none';
-        bankGroup.style.display = 'none';
-        bankSelect.required = false;
-    } else {
-        metField.style.display = '';
-        toggleBankField();
-    }
-}
-
-function toggleBankField() {
-    if (pmSelect.value === 'Bank') {
-        bankGroup.style.display = '';
-        bankSelect.required = true;
-    } else {
-        bankGroup.style.display = 'none';
-        bankSelect.required = false;
-        bankSelect.value = '';
-    }
-}
-
-payType.addEventListener('change', toggleFields);
-pmSelect.addEventListener('change', toggleBankField);
-toggleFields();
 calcTotal();
 </script>
 

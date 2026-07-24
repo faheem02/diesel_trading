@@ -33,7 +33,7 @@ if (!empty($to_date)) {
     $types .= "s";
 }
 
-$sql = "SELECT sl.*, s.company_name FROM supplier_ledger sl JOIN suppliers s ON sl.supplier_id = s.id WHERE $where ORDER BY sl.transaction_date ASC, sl.id ASC";
+$sql = "SELECT sl.*, s.company_name, p.diesel_quantity AS quantity, p.rate_per_ton FROM supplier_ledger sl JOIN suppliers s ON sl.supplier_id = s.id LEFT JOIN purchases p ON sl.reference_id = p.id AND sl.reference_type = 'purchase' WHERE $where ORDER BY sl.transaction_date ASC, sl.id ASC";
 $stmt = $conn->prepare($sql);
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
@@ -85,15 +85,17 @@ if ($print_mode) {
             Balance: <?= number_format($sup['balance'] ?? 0, 2) ?>
         </div>
         <table>
-            <thead><tr><th>Date</th><th>Description</th><th>Ref</th><th class="text-right">Debit ($)</th><th class="text-right">Credit ($)</th><th class="text-right">Balance ($)</th></tr></thead>
+            <thead><tr><th>Date</th><th>Description</th><th>Ref</th><th class="text-right">Qty (Ton)</th><th class="text-right">Rate/Ton</th><th class="text-right">Debit ($)</th><th class="text-right">Credit ($)</th><th class="text-right">Balance ($)</th></tr></thead>
             <tbody>
                 <?php if ($entries->num_rows === 0): ?>
-                    <tr><td colspan="6" class="text-center" style="color:#999;padding:20px;">No entries found.</td></tr>
+                    <tr><td colspan="8" class="text-center" style="color:#999;padding:20px;">No entries found.</td></tr>
                 <?php else: while ($e = $entries->fetch_assoc()): ?>
                 <tr>
                     <td><?= htmlspecialchars($e['transaction_date']) ?></td>
                     <td><?= htmlspecialchars($e['description']) ?></td>
                     <td><?= htmlspecialchars($e['reference_type']) ?></td>
+                    <td class="text-right"><?= ($e['reference_type'] === 'purchase' && $e['quantity'] > 0) ? number_format($e['quantity'], 3) : '-' ?></td>
+                    <td class="text-right"><?= ($e['reference_type'] === 'purchase' && $e['rate_per_ton'] > 0) ? number_format($e['rate_per_ton'], 2) : '-' ?></td>
                     <td class="text-right"><?= $e['debit'] > 0 ? number_format($e['debit'], 2) : '-' ?></td>
                     <td class="text-right"><?= $e['credit'] > 0 ? number_format($e['credit'], 2) : '-' ?></td>
                     <td class="text-right"><?= number_format($e['balance'], 2) ?></td>
@@ -181,6 +183,8 @@ include '../../includes/header.php';
                         <th>Date</th>
                         <th>Description</th>
                         <th>Ref</th>
+                        <th class="text-right">Qty (Ton)</th>
+                        <th class="text-right">Rate/Ton</th>
                         <th class="text-right">Debit ($)</th>
                         <th class="text-right">Credit ($)</th>
                         <th class="text-right">Balance ($)</th>
@@ -188,13 +192,15 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if ($entries->num_rows === 0): ?>
-                        <tr><td colspan="6" class="text-center text-muted py-4">No ledger entries found.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">No ledger entries found.</td></tr>
                     <?php else:
                         while ($e = $entries->fetch_assoc()): ?>
                         <tr>
                             <td><?= htmlspecialchars($e['transaction_date']) ?></td>
                             <td><?= htmlspecialchars($e['description']) ?></td>
                             <td><span class="badge badge-info"><?= htmlspecialchars($e['reference_type']) ?></span></td>
+                            <td class="text-right"><?= ($e['reference_type'] === 'purchase' && $e['quantity'] > 0) ? number_format($e['quantity'], 3) : '-' ?></td>
+                            <td class="text-right"><?= ($e['reference_type'] === 'purchase' && $e['rate_per_ton'] > 0) ? number_format($e['rate_per_ton'], 2) : '-' ?></td>
                             <td class="text-right text-danger font-weight-bold"><?= $e['debit'] > 0 ? number_format($e['debit'], 2) : '-' ?></td>
                             <td class="text-right text-success font-weight-bold"><?= $e['credit'] > 0 ? number_format($e['credit'], 2) : '-' ?></td>
                             <td class="text-right font-weight-bold <?= $e['balance'] >= 0 ? 'text-success' : 'text-danger' ?>"><?= number_format($e['balance'], 2) ?></td>

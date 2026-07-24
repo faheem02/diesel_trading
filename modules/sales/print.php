@@ -6,7 +6,7 @@ require_once '../../includes/db.php';
 $id = intval($_GET['id'] ?? 0);
 if ($id <= 0) { die("Invalid sale ID"); }
 
-$sale = $conn->query("SELECT cs.*, ba.account_name, ba.bank_name FROM customer_sales cs LEFT JOIN bank_accounts ba ON cs.bank_account_id = ba.id WHERE cs.id = $id")->fetch_assoc();
+$sale = $conn->query("SELECT cs.* FROM customer_sales cs WHERE cs.id = $id")->fetch_assoc();
 if (!$sale) { die("Sale not found"); }
 
 $logo = $base_url . "modules/logo/WhatsApp%20Image%202026-07-04%20at%201.20.58%20PM.jpeg";
@@ -211,10 +211,6 @@ table tfoot .grand-total td { font-size: 16px; background: #f8f9fc; border-top: 
             <h4>Payment Details</h4>
             <div class="row">
                 <span><strong>Status:</strong> <?= htmlspecialchars($sale['payment_type']) ?></span>
-                <span><strong>Method:</strong> <?= htmlspecialchars($sale['payment_method'] ?: '-') ?></span>
-                <?php if ($sale['account_name']): ?>
-                <span><strong>Account:</strong> <?= htmlspecialchars($sale['bank_name'] ? $sale['bank_name'] . ' — ' : '') . htmlspecialchars($sale['account_name']) ?></span>
-                <?php endif; ?>
             </div>
         </div>
 

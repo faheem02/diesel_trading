@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $purchases_active    = in_array($active_page ?? '', ['purchase_add', 'purchase_list', 'purchase_return', 'purchase_return_list', 'purchase_adjustment']);
 $suppliers_active    = in_array($active_page ?? '', ['supplier_add', 'supplier_list', 'supplier_ledger', 'supplier_payment']);
-$diesel_stock_active = in_array($active_page ?? '', ['tank_list', 'stock_in', 'stock_in_list', 'sale_add', 'sale_list', 'stock_adjustment', 'adjustment_list', 'stock_report_current', 'stock_report_daily', 'stock_report_ledger', 'stock_report']);
+$diesel_stock_active = in_array($active_page ?? '', ['tank_list', 'opening_stock', 'stock_in', 'stock_in_list', 'sale_add', 'sale_list', 'stock_adjustment', 'adjustment_list', 'stock_report_current', 'stock_report_daily', 'stock_report_ledger', 'stock_report']);
 $customers_active    = in_array($active_page ?? '', ['customer_add', 'customer_list', 'customer_ledger', 'customer_payment', 'customer_recovery']);
 $sales_mgmt_active   = in_array($active_page ?? '', ['sale_entry', 'sale_list', 'sale_return', 'sale_return_list']);
 $tanker_active       = in_array($active_page ?? '', ['tanker_list', 'tanker_expense_add', 'tanker_expense_list', 'expense_add', 'expense_list']);
@@ -464,8 +464,8 @@ $general_report_active = in_array($active_page ?? '', ['general_report', 'genera
                 <div id="collapseStock" class="collapse <?= $diesel_stock_active ? 'show' : '' ?>" aria-labelledby="headingStock" data-parent="#accordionSidebar">
                     <div class="py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Manage Stock:</h6>
-                        <a class="collapse-item <?= ($active_page ?? '') === 'tank_list' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/tanks.php">
-                            <i class="fas fa-fw fa-oil-can fa-sm mr-1"></i> Tank Wise Stock
+                        <a class="collapse-item <?= ($active_page ?? '') === 'opening_stock' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/opening_stock.php">
+                            <i class="fas fa-fw fa-database fa-sm mr-1"></i> Opening Stock
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'stock_adjustment' ? 'active' : '' ?>" href="<?= $base_url ?>modules/diesel_stock/adjustments.php">
                             <i class="fas fa-fw fa-sliders-h fa-sm mr-1"></i> Stock Adjustment
@@ -573,10 +573,10 @@ $general_report_active = in_array($active_page ?? '', ['general_report', 'genera
                             <i class="fas fa-fw fa-users fa-sm mr-1"></i> Parties
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_payable' ? 'active' : '' ?>" href="<?= $base_url ?>modules/general/add_payable.php">
-                            <i class="fas fa-fw fa-hand-holding-usd fa-sm mr-1"></i> Add Payable
+                            <i class="fas fa-fw fa-hand-holding-usd fa-sm mr-1"></i> Paid by Younas
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_receivable' ? 'active' : '' ?>" href="<?= $base_url ?>modules/general/add_receivable.php">
-                            <i class="fas fa-fw fa-dollar-sign fa-sm mr-1"></i> Add Receivable
+                            <i class="fas fa-fw fa-dollar-sign fa-sm mr-1"></i> Received by Younas
                         </a>
                     </div>
                 </div>

@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($customer_name)) {
         $error = "Customer name is required.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO customers (customer_name, mobile, address, opening_balance, balance) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssddd", $customer_name, $mobile, $address, $opening_balance, $opening_balance);
+        $stmt = $conn->prepare("INSERT INTO customers (customer_name, mobile, address, opening_balance, balance) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssdd", $customer_name, $mobile, $address, $opening_balance, $opening_balance);
 
         if ($stmt->execute()) {
             $new_id = $conn->insert_id;

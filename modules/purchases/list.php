@@ -150,7 +150,6 @@ include '../../includes/header.php';
                                 <td><?= htmlspecialchars($row['purchase_date']) ?></td>
                                 <td><?= htmlspecialchars($row['company_name']) ?></td>
                                 <td><?= number_format($row['diesel_quantity'], 3) ?>
-                                    <small class="d-block text-muted">Waste: <?= number_format($row['waste_kg'] ?? 0, 2) ?> kg</small>
                                 </td>
                                 <td><?= number_format($row['rate_per_ton'], 2) ?></td>
                                 <td class="font-weight-bold"><?= number_format($row['net_purchase_cost'], 2) ?></td>

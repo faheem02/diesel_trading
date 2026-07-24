@@ -12,15 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payment_date    = $_POST['payment_date'];
     $amount          = floatval($_POST['amount'] ?? 0);
     $direction       = $_POST['direction'] ?? 'to_supplier';
-    $payment_method  = trim($_POST['payment_method'] ?? 'Cash');
-    $bank_account_id = intval($_POST['bank_account_id'] ?? 0);
     $reference_no    = trim($_POST['reference_no'] ?? '');
     $notes           = trim($_POST['notes'] ?? '');
 
     if ($supplier_id <= 0 || empty($payment_date) || $amount <= 0) {
         $error = "Please fill all required fields with valid values.";
-    } elseif ($bank_account_id <= 0) {
-        $error = "Please select a Cash or Bank account.";
     } else {
         $conn->begin_transaction();
         try {
@@ -42,13 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare("
                 INSERT INTO supplier_ledger
                     (supplier_id, transaction_date, description, debit, credit, reference_type, bank_account_id, payment_method)
-                VALUES (?, ?, ?, ?, ?, 'payment', ?, ?)
+                VALUES (?, ?, ?, ?, ?, 'payment', 0, 'Cash')
             ");
-            // types: i s s d d i s  = 7 params
-            $stmt->bind_param("issddis",
+            // types: i s s d d  = 5 params
+            $stmt->bind_param("issdd",
                 $supplier_id, $payment_date, $desc,
-                $debit, $credit,
-                $bank_account_id, $payment_method
+                $debit, $credit
             );
             $stmt->execute();
             $entry_id = $conn->insert_id;
@@ -60,11 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $running = $bal['bal'];
             $conn->query("UPDATE supplier_ledger SET balance = $running WHERE id = $entry_id");
             $conn->query("UPDATE suppliers SET balance = $running WHERE id = $supplier_id");
-
-            // 3. Update cash / bank account balance
-            $conn->query("UPDATE bank_accounts
-                          SET current_balance = current_balance + ($bal_change)
-                          WHERE id = $bank_account_id");
 
             $conn->commit();
             $label   = $direction === 'to_supplier' ? 'paid to' : 'received from';
@@ -78,8 +68,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $suppliers     = $conn->query("SELECT id, company_name, balance FROM suppliers ORDER BY company_name ASC");
-$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance
-                                FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
 include '../../includes/header.php';
 ?>
 
@@ -157,46 +145,14 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div class="row">
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Payment Method <span class="text-danger">*</span></label>
-                        <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash"          <?= (!isset($_POST['payment_method']) || $_POST['payment_method'] === 'Cash')          ? 'selected' : '' ?>>Cash</option>
-                            <option value="Bank Transfer" <?= (isset($_POST['payment_method']) && $_POST['payment_method'] === 'Bank Transfer') ? 'selected' : '' ?>>Bank Transfer</option>
-                            <option value="Cheque"        <?= (isset($_POST['payment_method']) && $_POST['payment_method'] === 'Cheque')        ? 'selected' : '' ?>>Cheque</option>
-                        </select>
-                    </div>
-                </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label class="small font-weight-bold" id="acct_label">Cash Account <span class="text-danger">*</span></label>
-                        <select name="bank_account_id" id="bank_account_id" class="form-control" required>
-                            <option value="">-- Select Account --</option>
-                            <?php
-                            $bank_accounts->data_seek(0);
-                            while ($b = $bank_accounts->fetch_assoc()):
-                                $display = htmlspecialchars($b['account_name']);
-                                if ($b['bank_name'])      $display = htmlspecialchars($b['bank_name']) . ' — ' . $display;
-                                if ($b['account_number']) $display .= ' (' . htmlspecialchars($b['account_number']) . ')';
-                                $display .= ' | Bal: ' . number_format($b['current_balance'], 2);
-                            ?>
-                                <option value="<?= $b['id'] ?>"
-                                    data-type="<?= $b['account_type'] ?>"
-                                    <?= (isset($_POST['bank_account_id']) && $_POST['bank_account_id'] == $b['id']) ? 'selected' : '' ?>>
-                                    [<?= $b['account_type'] ?>] <?= $display ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="form-group">
                         <label class="small font-weight-bold">Reference No.</label>
-                        <input type="text" name="reference_no" class="form-control" placeholder="Cheque / Txn #"
+                        <input type="text" name="reference_no" class="form-control" placeholder="Ref #"
                                value="<?= htmlspecialchars($_POST['reference_no'] ?? '') ?>">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="form-group">
                         <label class="small font-weight-bold">Notes</label>
                         <input type="text" name="notes" class="form-control" placeholder="Optional"
@@ -216,35 +172,5 @@ include '../../includes/header.php';
         </a>
     </div>
 </form>
-
-<script>
-const pmSelect   = document.getElementById('payment_method');
-const acctSelect = document.getElementById('bank_account_id');
-const acctLabel  = document.getElementById('acct_label');
-
-function filterAccounts() {
-    const method  = pmSelect.value;
-    const isCash  = (method === 'Cash');
-    const wantType = isCash ? 'Cash' : 'Bank';
-
-    acctLabel.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
-
-    let firstMatch = null;
-    acctSelect.querySelectorAll('option[data-type]').forEach(opt => {
-        const show = (opt.dataset.type === wantType);
-        opt.style.display = show ? '' : 'none';
-        if (show && !firstMatch) firstMatch = opt.value;
-    });
-
-    // If current selection is now hidden, reset
-    const cur = acctSelect.querySelector('option:checked');
-    if (!cur || cur.style.display === 'none') {
-        acctSelect.value = firstMatch || '';
-    }
-}
-
-pmSelect.addEventListener('change', filterAccounts);
-filterAccounts(); // run on page load
-</script>
 
 <?php include '../../includes/footer.php'; ?>

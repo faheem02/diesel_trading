@@ -4,13 +4,21 @@ $active_page = 'stock_report_ledger';
 require_once '../../../includes/config.php';
 require_once '../../../includes/db.php';
 
-$from_date = $_GET['from_date'] ?? '';
-$to_date   = $_GET['to_date'] ?? '';
+$from_date = $_GET['from_date'] ?? date('Y-m-01');
+$to_date   = $_GET['to_date'] ?? date('Y-m-d');
 $tank_id   = intval($_GET['tank_id'] ?? 0);
 $movement_type = $_GET['movement_type'] ?? '';
 $print_mode = isset($_GET['print']) && $_GET['print'] == 1;
 
 $tanks = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name ASC");
+$tanks_arr = [];
+while ($row = $tanks->fetch_assoc()) $tanks_arr[] = $row;
+$single_tank = (count($tanks_arr) === 1) ? $tanks_arr[0] : null;
+
+// Auto-select single tank
+if ($single_tank && $tank_id <= 0) {
+    $tank_id = intval($single_tank['id']);
+}
 
 $sql = "SELECT sl.*, t.tank_name FROM stock_ledger sl JOIN tanks t ON sl.tank_id = t.id WHERE 1=1";
 $params = [];
@@ -95,10 +103,10 @@ if ($print_mode) {
             <?php if ($movement_type): ?> &nbsp;|&nbsp; Type: <?= htmlspecialchars($movement_type) ?><?php endif; ?>
         </div>
         <table>
-            <thead><tr><th>#</th><th>Date</th><th>Tank</th><th>Type</th><th class="text-right">In (Tons)</th><th class="text-right">Out (Tons)</th><th class="text-right">Balance Before</th><th class="text-right">Balance After</th><th>Description</th></tr></thead>
+            <thead><tr><th>#</th><th>Date</th><th>Type</th><th class="text-right">In (Tons)</th><th class="text-right">Out (Tons)</th><th class="text-right">Balance Before</th><th class="text-right">Balance After</th><th>Description</th></tr></thead>
             <tbody>
                 <?php if ($result->num_rows === 0): ?>
-                    <tr><td colspan="9" class="text-center" style="color:#999;padding:20px;">No entries found.</td></tr>
+                    <tr><td colspan="8" class="text-center" style="color:#999;padding:20px;">No entries found.</td></tr>
                 <?php else: $i = 1; while ($row = $result->fetch_assoc()):
                     $qty_in  = $row['movement_type'] === 'IN' ? $row['quantity'] : 0;
                     $qty_out = $row['movement_type'] !== 'IN' ? $row['quantity'] : 0;
@@ -106,7 +114,6 @@ if ($print_mode) {
                 <tr>
                     <td><?= $i++ ?></td>
                     <td><?= htmlspecialchars($row['transaction_date']) ?></td>
-                    <td><?= htmlspecialchars($row['tank_name']) ?></td>
                     <td><?= $row['movement_type'] ?></td>
                     <td class="text-right"><?= $qty_in > 0 ? number_format($qty_in, 3) : '-' ?></td>
                     <td class="text-right"><?= $qty_out > 0 ? number_format($qty_out, 3) : '-' ?></td>
@@ -157,19 +164,7 @@ include '../../../includes/header.php';
                         <input type="date" name="to_date" class="form-control" value="<?= htmlspecialchars($to_date) ?>">
                     </div>
                 </div>
-                <div class="col-md-2">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Tank</label>
-                        <select name="tank_id" class="form-control">
-                            <option value="">All Tanks</option>
-                            <?php while ($t = $tanks->fetch_assoc()): ?>
-                                <option value="<?= $t['id'] ?>" <?= $tank_id === $t['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($t['tank_name']) ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" name="tank_id" value="<?= $single_tank ? $single_tank['id'] : ($tanks_arr[0]['id'] ?? '') ?>">
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">Movement Type</label>
@@ -206,7 +201,6 @@ include '../../../includes/header.php';
                     <tr>
                         <th width="3%">#</th>
                         <th width="10%">Date</th>
-                        <th width="12%">Tank</th>
                         <th width="8%">Type</th>
                         <th width="10%">In (Tons)</th>
                         <th width="10%">Out (Tons)</th>
@@ -217,7 +211,7 @@ include '../../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows === 0): ?>
-                        <tr><td colspan="9" class="text-center text-muted py-4">No ledger entries found.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">No ledger entries found.</td></tr>
                     <?php else:
                         $i = 1;
                         while ($row = $result->fetch_assoc()):
@@ -229,7 +223,6 @@ include '../../../includes/header.php';
                         <tr>
                             <td><?= $i++ ?></td>
                             <td><?= htmlspecialchars($row['transaction_date']) ?></td>
-                            <td class="font-weight-bold"><?= htmlspecialchars($row['tank_name']) ?></td>
                             <td><span class="badge badge-<?= $type_badge ?>"><?= $row['movement_type'] ?></span></td>
                             <td class="text-success font-weight-bold"><?= $qty_in  > 0 ? number_format($qty_in,  3) : '-' ?></td>
                             <td class="text-danger font-weight-bold"><?= $qty_out > 0 ? number_format($qty_out, 3) : '-' ?></td>

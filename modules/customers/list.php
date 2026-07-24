@@ -185,6 +185,9 @@ include '../../includes/header.php';
                                 <?= number_format($row['balance'], 2) ?>
                             </td>
                             <td class="text-center" style="white-space:nowrap">
+                                <a href="summary.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-success" title="View Summary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
                                 <a href="ledger.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-info" title="Ledger">
                                     <i class="fas fa-book"></i>
                                 </a>

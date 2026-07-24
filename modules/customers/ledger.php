@@ -51,7 +51,7 @@ include '../../includes/header.php';
     </div>
 </div>
 <?php else:
-    $sql = "SELECT * FROM customer_ledger WHERE customer_id = ?";
+    $sql = "SELECT cl.*, cs.quantity, cs.rate_per_ton FROM customer_ledger cl LEFT JOIN customer_sales cs ON cl.reference_id = cs.id AND cl.reference_type = 'sale' WHERE cl.customer_id = ?";
     $params = [$customer_id];
     $types = "i";
 
@@ -121,15 +121,17 @@ if ($print_mode) {
             Balance: <?= number_format($sup['balance'] ?? 0, 2) ?>
         </div>
         <table>
-            <thead><tr><th>Date</th><th>Description</th><th>Ref</th><th class="text-right">Debit ($)</th><th class="text-right">Credit ($)</th><th class="text-right">Balance ($)</th></tr></thead>
+            <thead><tr><th>Date</th><th>Description</th><th>Ref</th><th class="text-right">Qty (Ton)</th><th class="text-right">Rate/Ton</th><th class="text-right">Debit ($)</th><th class="text-right">Credit ($)</th><th class="text-right">Balance ($)</th></tr></thead>
             <tbody>
                 <?php if ($entries->num_rows === 0): ?>
-                    <tr><td colspan="6" class="text-center" style="color:#999;padding:20px;">No entries found.</td></tr>
+                    <tr><td colspan="8" class="text-center" style="color:#999;padding:20px;">No entries found.</td></tr>
                 <?php else: while ($row = $entries->fetch_assoc()): ?>
                 <tr>
                     <td><?= htmlspecialchars($row['transaction_date']) ?></td>
                     <td><?= htmlspecialchars($row['description']) ?></td>
                     <td><?= str_replace('_', ' ', $row['reference_type']) ?></td>
+                    <td class="text-right"><?= ($row['reference_type'] === 'sale' && $row['quantity'] > 0) ? number_format($row['quantity'], 3) : '-' ?></td>
+                    <td class="text-right"><?= ($row['reference_type'] === 'sale' && $row['rate_per_ton'] > 0) ? number_format($row['rate_per_ton'], 2) : '-' ?></td>
                     <td class="text-right"><?= $row['debit'] > 0 ? number_format($row['debit'], 2) : '-' ?></td>
                     <td class="text-right"><?= $row['credit'] > 0 ? number_format($row['credit'], 2) : '-' ?></td>
                     <td class="text-right"><?= number_format($row['balance'], 2) ?></td>
@@ -153,9 +155,7 @@ if ($print_mode) {
         <h6 class="m-0 font-weight-bold text-primary">
             <i class="fas fa-user mr-1"></i> <?= htmlspecialchars($sup['customer_name']) ?>
             <span class="badge badge-<?= $sup['balance'] >= 0 ? 'success' : 'danger' ?> ml-2">Bal: $ <?= number_format($sup['balance'], 2) ?></span>
-            <?php if ($sup['credit_limit'] > 0): ?>
-                <small class="text-muted ml-2">Credit Limit: $ <?= number_format($sup['credit_limit'], 2) ?></small>
-            <?php endif; ?>
+            
         </h6>
     </div>
     <div class="card-body">
@@ -180,6 +180,8 @@ if ($print_mode) {
                         <th>Date</th>
                         <th>Description</th>
                         <th>Ref</th>
+                        <th class="text-right">Qty (Ton)</th>
+                        <th class="text-right">Rate/Ton</th>
                         <th>Debit ($)</th>
                         <th>Credit ($)</th>
                         <th>Balance ($)</th>
@@ -187,13 +189,15 @@ if ($print_mode) {
                 </thead>
                 <tbody>
                     <?php if ($entries->num_rows === 0): ?>
-                        <tr><td colspan="6" class="text-center text-muted py-4">No ledger entries found.</td></tr>
+                        <tr><td colspan="8" class="text-center text-muted py-4">No ledger entries found.</td></tr>
                     <?php else:
                         while ($row = $entries->fetch_assoc()): ?>
                         <tr>
                             <td><?= htmlspecialchars($row['transaction_date']) ?></td>
                             <td><?= htmlspecialchars($row['description']) ?></td>
                             <td><span class="badge badge-info"><?= str_replace('_', ' ', $row['reference_type']) ?></span></td>
+                            <td class="text-right"><?= ($row['reference_type'] === 'sale' && $row['quantity'] > 0) ? number_format($row['quantity'], 3) : '-' ?></td>
+                            <td class="text-right"><?= ($row['reference_type'] === 'sale' && $row['rate_per_ton'] > 0) ? number_format($row['rate_per_ton'], 2) : '-' ?></td>
                             <td class="text-danger font-weight-bold"><?= $row['debit'] > 0 ? number_format($row['debit'], 2) : '-' ?></td>
                             <td class="text-success font-weight-bold"><?= $row['credit'] > 0 ? number_format($row['credit'], 2) : '-' ?></td>
                             <td class="font-weight-bold <?= $row['balance'] >= 0 ? 'text-success' : 'text-danger' ?>">

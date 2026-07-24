@@ -71,19 +71,7 @@ include '../../includes/header.php';
                         <input type="date" name="to_date" class="form-control" value="<?= htmlspecialchars($to_date) ?>">
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Tank</label>
-                        <select name="tank_id" class="form-control">
-                            <option value="">All Tanks</option>
-                            <?php while ($t = $tanks->fetch_assoc()): ?>
-                                <option value="<?= $t['id'] ?>" <?= $tank_id === $t['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($t['tank_name']) ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" name="tank_id" value="<?= $tank_id ?>">
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="small font-weight-bold">&nbsp;</label>
@@ -109,7 +97,6 @@ include '../../includes/header.php';
                     <tr>
                         <th>#</th>
                         <th>Date</th>
-                        <th>Tank</th>
                         <th>Quantity (Tons)</th>
                         <th>Balance Before</th>
                         <th>Balance After</th>
@@ -118,14 +105,13 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows === 0): ?>
-                        <tr><td colspan="7" class="text-center text-muted py-4">No stock in records found.</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-4">No stock in records found.</td></tr>
                     <?php else:
                         $i = 1;
                         while ($row = $result->fetch_assoc()): ?>
                         <tr>
                             <td><?= $i++ ?></td>
                             <td><?= htmlspecialchars($row['transaction_date']) ?></td>
-                            <td class="font-weight-bold"><?= htmlspecialchars($row['tank_name']) ?></td>
                             <td class="font-weight-bold text-success"><?= number_format($row['quantity'], 3) ?></td>
                             <td><?= number_format($row['balance_before'], 3) ?></td>
                             <td class="font-weight-bold"><?= number_format($row['balance_after'], 3) ?></td>

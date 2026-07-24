@@ -4,14 +4,20 @@ $active_page = 'stock_report';
 require_once '../../../includes/config.php';
 require_once '../../../includes/db.php';
 
-$from_date = $_GET['from_date'] ?? '';
-$to_date   = $_GET['to_date'] ?? '';
+$from_date = $_GET['from_date'] ?? date('Y-m-01');
+$to_date   = $_GET['to_date']   ?? date('Y-m-d');
 $tank_id   = intval($_GET['tank_id'] ?? 0);
 $print_mode = isset($_GET['print']) && $_GET['print'] == 1;
 
 $tanks_res = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name ASC");
 $tanks_list = [];
 while($t = $tanks_res->fetch_assoc()) $tanks_list[] = $t;
+$single_tank = (count($tanks_list) === 1) ? $tanks_list[0] : null;
+
+// Auto-select single tank
+if ($single_tank && $tank_id <= 0) {
+    $tank_id = intval($single_tank['id']);
+}
 
 $selected_tank_name = '';
 if ($tank_id > 0) {
@@ -41,7 +47,8 @@ if (!empty($to_date)) {
     $types .= "s";
 }
 
-$sql .= " ORDER BY sl.transaction_date ASC, sl.id ASC";
+// Opening balance always shows as the first row of its date — it is the starting point of the stock
+$sql .= " ORDER BY sl.transaction_date ASC, (sl.reference_type = 'opening_balance') DESC, sl.id ASC";
 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);
@@ -182,17 +189,7 @@ include '../../../includes/header.php';
     <div class="card-body">
         <form method="GET">
             <div class="row w-100">
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Tank <span class="text-danger">*</span></label>
-                        <select name="tank_id" class="form-control" required id="tankSelect">
-                            <option value="">-- Select Tank --</option>
-                            <?php foreach ($tanks_list as $tl): ?>
-                                <option value="<?= $tl['id'] ?>" <?= $tank_id == $tl['id'] ? 'selected' : '' ?>><?= htmlspecialchars($tl['tank_name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" name="tank_id" value="<?= $single_tank ? $single_tank['id'] : ($tanks_list[0]['id'] ?? '') ?>">
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="small font-weight-bold">From Date</label>
@@ -316,9 +313,6 @@ $(document).ready(function() {
         language: { lengthMenu: "Show _MENU_ entries" }
     });
 
-    $('#tankSelect').on('change', function() {
-        this.form.submit();
-    });
 });
 </script>
 

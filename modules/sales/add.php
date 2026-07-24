@@ -7,9 +7,12 @@ $success = "";
 $error   = "";
 
 $customers  = $conn->query("SELECT id, customer_name, mobile FROM customers ORDER BY customer_name ASC");
-$tanks_res  = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name");
-$tanks_list = [];
-while($t = $tanks_res->fetch_assoc()) $tanks_list[] = $t;
+require_once '../../includes/tank_helper.php';
+$tanks_list = resolve_default_tank($conn);
+$single_tank = $tanks_list[0]; // default tank always exists (auto-created if table was empty)
+
+$max_inv = $conn->query("SELECT COALESCE(MAX(CAST(invoice_no AS UNSIGNED)),0)+1 AS next_inv FROM customer_sales")->fetch_assoc();
+$next_invoice = str_pad($max_inv['next_inv'], 4, '0', STR_PAD_LEFT);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $invoice_no       = trim($_POST['invoice_no']);
@@ -18,8 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer_name    = trim($_POST['customer_name'] ?? '');
     $mobile           = trim($_POST['mobile'] ?? '');
     $advance_payment  = floatval($_POST['advance_payment'] ?? 0);
-    $bank_account_id  = 0;
-    $payment_method   = 'Cash';
 
     // Resolve customer name for known customers
     if ($customer_id > 0) {
@@ -36,6 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please add at least one tanker entry.";
     } else {
         $tankers = $_POST['tankers'];
+        if ($single_tank) {
+            foreach ($tankers as &$t) { $t['tank_id'] = $single_tank['id']; }
+            unset($t);
+        }
         $total_qty = 0;
         $total_waste = 0;
         $total_net_qty = 0;
@@ -69,6 +74,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $vehicle_number = '';
         $driver_info = implode(', ', array_unique($all_driver_info));
 
+        $stock_ok = true;
+        $stock_errors = [];
+        foreach ($tankers as $t) {
+            $tid = intval($t['tank_id'] ?? 0);
+            $qty = floatval($t['quantity'] ?? 0);
+            if ($tid > 0 && $qty > 0) {
+                $tk = $conn->query("SELECT tank_name, current_stock FROM tanks WHERE id = $tid")->fetch_assoc();
+                if ($tk && $tk['current_stock'] < $qty) {
+                    $stock_ok = false;
+                    $stock_errors[] = $tk['tank_name'] . ': Available ' . number_format($tk['current_stock'], 3) . ' tons, requested ' . number_format($qty, 3) . ' tons';
+                }
+            }
+        }
+        if (!$stock_ok) {
+            $error = "Insufficient stock! " . implode('; ', $stock_errors);
+        } else {
+
         $conn->begin_transaction();
         try {
             // Derive payment_type for display from advance_payment
@@ -80,14 +102,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  vehicle_number, quantity, waste_kg, net_quantity, rate_per_ton,
                  total_amount, freight_charges, other_charges, net_amount,
                  payment_type, payment_method, bank_account_id, driver_info, delivery_location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 'Cash', 0, ?, ?)");
             
-            // Convert null to empty string or 0 for bind_param
-            $cid_val = $customer_id > 0 ? $customer_id : 0;
+            // Walk-in customers have no customer record — must be NULL, not 0,
+            // otherwise the customer_sales_ibfk_1 FK (customer_id -> customers.id) fails.
+            $cid_val = $customer_id > 0 ? $customer_id : null;
             $delivery_location = '';
             
             $stmt->bind_param(
-                "sissssddddddddssiss",
+                "sissssdddddssss",
                 $invoice_no,
                 $cid_val,
                 $customer_name,
@@ -99,12 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $total_net_qty,
                 $weighted_rate,
                 $total_amount,
-                0,
-                0,
                 $total_net,
                 $payment_type,
-                $payment_method,
-                $bank_account_id,
                 $driver_info,
                 $delivery_location
             );
@@ -137,8 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $reference_id_val = $sale_id ? $sale_id : 0;
                         
                         // Use a simple insert with escaped values
-                        $acct_id_for_ledger = 0;
-                        $pm_for_ledger      = 'Cash';
                         $insert_sql = "INSERT INTO stock_ledger 
                             (tank_id, transaction_date, movement_type, reference_type, reference_id, 
                              quantity, rate, amount, balance_before, balance_after, description,
@@ -155,8 +172,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 " . floatval($bal_before) . ",
                                 " . floatval($bal_after) . ",
                                 '" . addslashes($stock_desc) . "',
-                                " . $acct_id_for_ledger . ",
-                                '$pm_for_ledger'
+                                0,
+                                'Cash'
                             )";
                         $conn->query($insert_sql);
                     }
@@ -175,10 +192,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $s2 = $conn->prepare("INSERT INTO customer_ledger 
                     (customer_id, transaction_date, description, debit, credit, balance, reference_type, reference_id, bank_account_id, payment_method) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'Cash')");
                 $zero = 0;
                 $s2->bind_param(
-                    "issdddisis",
+                    "issdddsi",
                     $customer_id,
                     $sale_date,
                     $desc,
@@ -186,9 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $zero,
                     $new_bal,
                     $ref_type,
-                    $sale_id,
-                    $bank_account_id,
-                    $payment_method
+                    $sale_id
                 );
                 $s2->execute();
                 $s2->close();
@@ -205,10 +220,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $s3 = $conn->prepare("INSERT INTO customer_ledger
                         (customer_id, transaction_date, description, debit, credit, balance, reference_type, reference_id, bank_account_id, payment_method)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'Cash')");
 
                     $s3->bind_param(
-                        "issdddisis",
+                        "issdddsi",
                         $customer_id,
                         $sale_date,
                         $desc2,
@@ -216,9 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $advance_payment,
                         $new_bal2,
                         $ref_type2,
-                        $sale_id,
-                        $bank_account_id,
-                        $payment_method
+                        $sale_id
                     );
                     $s3->execute();
                     $s3->close();
@@ -230,9 +243,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = "Sale recorded successfully! Invoice #$invoice_no";
             $_POST = [];
         } catch (Exception $e) {
+            $errno = $conn->errno;
             $conn->rollback();
-            $error = ($conn->errno === 1062) ? "Invoice number already exists." : "Database error: " . $e->getMessage();
+            $error = ($errno === 1062) ? "Invoice number '$invoice_no' already exists. Please use a different invoice number." : "Database error: " . $e->getMessage();
         }
+        } // end stock_ok
     }
 }
 
@@ -262,7 +277,7 @@ include '../../includes/header.php';
             <div class="col-md-4">
                 <div class="form-group">
                     <label class="small font-weight-bold">Sale Invoice No <span class="text-danger">*</span></label>
-                    <input type="text" name="invoice_no" class="form-control" required value="<?= htmlspecialchars($_POST['invoice_no'] ?? '') ?>">
+                    <input type="text" name="invoice_no" class="form-control" required value="<?= htmlspecialchars($_POST['invoice_no'] ?? $next_invoice) ?>">
                 </div>
             </div>
             <div class="col-md-4">
@@ -305,10 +320,7 @@ include '../../includes/header.php';
                     <input type="text" name="mobile" id="customer_mobile" class="form-control" value="<?= htmlspecialchars($_POST['mobile']??'') ?>">
                 </div>
             </div>
-        </div>
-        <!-- Payment row -->
-        <div class="row border-top pt-3 mt-2">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="form-group">
                     <label class="small font-weight-bold">Advance Payment ($)</label>
                     <input type="number" step="0.01" min="0" name="advance_payment" id="advance_payment" class="form-control" value="<?= htmlspecialchars($_POST['advance_payment']??'0') ?>">
@@ -329,7 +341,6 @@ include '../../includes/header.php';
             <table class="table table-bordered mb-0" id="tankersTable">
                 <thead class="thead-light">
                     <tr>
-                        <th style="min-width:140px">Tank <span class="text-danger">*</span></th>
                         <th style="min-width:120px">Tanker No</th>
                         <th style="min-width:120px">Driver Name</th>
                         <th style="min-width:110px">Driver Mobile</th>
@@ -343,14 +354,7 @@ include '../../includes/header.php';
                 </thead>
                 <tbody id="tankersBody">
                     <tr class="tanker-row">
-                        <td>
-                            <select name="tankers[0][tank_id]" class="form-control form-control-sm" required>
-                                <option value="">-- Tank --</option>
-                                <?php foreach($tanks_list as $t): ?>
-                                    <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </td>
+                        <input type="hidden" name="tankers[0][tank_id]" value="<?= $single_tank['id'] ?>">
                         <td><input type="text" name="tankers[0][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No"></td>
                         <td><input type="text" name="tankers[0][driver_name]" class="form-control form-control-sm" placeholder="Driver Name"></td>
                         <td><input type="text" name="tankers[0][driver_mobile]" class="form-control form-control-sm" placeholder="Mobile"></td>
@@ -364,7 +368,7 @@ include '../../includes/header.php';
                 </tbody>
                 <tfoot class="table-active">
                     <tr>
-                        <th colspan="5" class="text-right">Totals:</th>
+                        <th colspan="4" class="text-right">Totals:</th>
                         <th><span id="totalQty">0.000</span></th>
                         <th><span id="totalWaste">0.000</span></th>
                         <th><span id="totalNetQty">0.000</span></th>
@@ -386,7 +390,6 @@ include '../../includes/header.php';
 
 <script>
 let tankerIndex = 1;
-const tanksOptions = `<?php foreach($tanks_list as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option><?php endforeach; ?>`;
 
 function calculateRow(row) {
     const qty     = parseFloat(row.querySelector('.tanker-qty').value)     || 0;
@@ -434,12 +437,7 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
     const tr = document.createElement('tr');
     tr.className = 'tanker-row';
     tr.innerHTML = `
-        <td>
-            <select name="tankers[${i}][tank_id]" class="form-control form-control-sm" required>
-                <option value="">-- Tank --</option>
-                ${tanksOptions}
-            </select>
-        </td>
+        <input type="hidden" name="tankers[${i}][tank_id]" value="<?= $single_tank['id'] ?>">
         <td><input type="text" name="tankers[${i}][tanker_number]" class="form-control form-control-sm" placeholder="Tanker No"></td>
         <td><input type="text" name="tankers[${i}][driver_name]" class="form-control form-control-sm" placeholder="Driver Name"></td>
         <td><input type="text" name="tankers[${i}][driver_mobile]" class="form-control form-control-sm" placeholder="Mobile"></td>

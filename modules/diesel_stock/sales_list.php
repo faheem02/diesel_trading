@@ -1,13 +1,8 @@
 <?php
 session_start();
-$active_page = 'sale_list';
-require_once '../../includes/db.php';
-
-$from_date = $_GET['from_date'] ?? '';
-$to_date   = $_GET['to_date'] ?? '';
-$tank_id   = intval($_GET['tank_id'] ?? 0);
-
-$sql = "SELECT s.*, t.tank_name FROM sales s JOIN tanks t ON s.tank_id = t.id WHERE 1=1";
+require_once '../../includes/config.php';
+header("Location: {$base_url}modules/sales/list.php");
+exit;
 $params = [];
 $types = "";
 
@@ -71,19 +66,7 @@ include '../../includes/header.php';
                         <input type="date" name="to_date" class="form-control" value="<?= htmlspecialchars($to_date) ?>">
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Tank</label>
-                        <select name="tank_id" class="form-control">
-                            <option value="">All Tanks</option>
-                            <?php while ($t = $tanks->fetch_assoc()): ?>
-                                <option value="<?= $t['id'] ?>" <?= $tank_id === $t['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($t['tank_name']) ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
+                <input type="hidden" name="tank_id" value="<?= $tank_id ?>">
                 <div class="col-md-3">
                     <div class="form-group">
                         <label class="small font-weight-bold">&nbsp;</label>
@@ -110,7 +93,6 @@ include '../../includes/header.php';
                         <th>#</th>
                         <th>Invoice No</th>
                         <th>Date</th>
-                        <th>Tank</th>
                         <th>Customer</th>
                         <th>Mobile</th>
                         <th>Vehicle</th>
@@ -122,7 +104,7 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if ($result->num_rows === 0): ?>
-                        <tr><td colspan="11" class="text-center text-muted py-4">No sales records found.</td></tr>
+                        <tr><td colspan="10" class="text-center text-muted py-4">No sales records found.</td></tr>
                     <?php else:
                         $i = 1;
                         while ($row = $result->fetch_assoc()): ?>
@@ -130,7 +112,6 @@ include '../../includes/header.php';
                             <td><?= $i++ ?></td>
                             <td class="font-weight-bold"><?= htmlspecialchars($row['invoice_no']) ?></td>
                             <td><?= htmlspecialchars($row['sale_date']) ?></td>
-                            <td><?= htmlspecialchars($row['tank_name']) ?></td>
                             <td><?= htmlspecialchars($row['customer_name']) ?></td>
                             <td><?= htmlspecialchars($row['customer_mobile'] ?: '-') ?></td>
                             <td><?= htmlspecialchars($row['vehicle_number'] ?: '-') ?></td>

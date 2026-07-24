@@ -6,7 +6,7 @@ require_once '../../includes/db.php';
 $from_date = $_GET['from_date'] ?? '';
 $to_date   = $_GET['to_date'] ?? '';
 
-$sql = "SELECT cs.* FROM customer_sales cs WHERE 1=1";
+$sql = "SELECT cs.*, cs.rate_per_ton AS sale_rate FROM customer_sales cs WHERE 1=1";
 $params = [];
 $types = "";
 
@@ -30,12 +30,57 @@ if (!empty($params)) {
 $result->execute();
 $result = $result->get_result();
 
+// Handle delete
+$delete_msg = '';
+if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
+    $did = intval($_GET['delete']);
+    $sale = $conn->query("SELECT * FROM customer_sales WHERE id = $did")->fetch_assoc();
+    if ($sale) {
+        $conn->begin_transaction();
+        try {
+            // Reverse stock
+            $tankers_data = $conn->query("SELECT tank_id, quantity, tanker_number FROM stock_ledger WHERE reference_type = 'sale' AND reference_id = $did");
+            if ($tankers_data) {
+                while ($td = $tankers_data->fetch_assoc()) {
+                    $tid = intval($td['tank_id']);
+                    $qty = floatval($td['quantity']);
+                    if ($tid > 0 && $qty > 0) {
+                        $conn->query("UPDATE tanks SET current_stock = current_stock + $qty WHERE id = $tid");
+                    }
+                }
+            }
+            $conn->query("DELETE FROM stock_ledger WHERE reference_type = 'sale' AND reference_id = $did");
+
+            // Reverse customer ledger
+            $customer_id = intval($sale['customer_id']);
+            if ($customer_id > 0) {
+                $conn->query("DELETE FROM customer_ledger WHERE reference_type = 'sale' AND reference_id = $did");
+                $conn->query("DELETE FROM customer_ledger WHERE reference_type = 'payment' AND reference_id = $did");
+                $bal = $conn->query("SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) AS b FROM customer_ledger WHERE customer_id = $customer_id")->fetch_assoc()['b'];
+                $conn->query("UPDATE customers SET balance = $bal WHERE id = $customer_id");
+            }
+
+            $conn->query("DELETE FROM customer_sales WHERE id = $did");
+            $conn->commit();
+            $delete_msg = '<div class="alert alert-success alert-dismissible fade show"><i class="fas fa-check-circle"></i> Sale deleted successfully.<button type="button" class="close" data-dismiss="alert">&times;</button></div>';
+        } catch (Exception $e) {
+            $conn->rollback();
+            $delete_msg = '<div class="alert alert-danger alert-dismissible fade show"><i class="fas fa-exclamation-triangle"></i> Error deleting sale: ' . htmlspecialchars($e->getMessage()) . '<button type="button" class="close" data-dismiss="alert">&times;</button></div>';
+        }
+    } else {
+        $delete_msg = '<div class="alert alert-danger alert-dismissible fade show"><i class="fas fa-exclamation-triangle"></i> Sale not found.<button type="button" class="close" data-dismiss="alert">&times;</button></div>';
+    }
+    // Refresh result
+    $result2 = $conn->prepare($sql);
+    if (!empty($params)) { $result2->bind_param($types, ...$params); }
+    $result2->execute();
+    $result = $result2->get_result();
+}
+
 // Calculate average purchase cost rates from ALL purchases (for the date range if filtered)
 $cost_sql = "SELECT
     COALESCE(SUM(diesel_quantity), 0) AS total_qty,
-    COALESCE(SUM(total_amount), 0) AS total_amount,
-    COALESCE(SUM(freight_charges), 0) AS total_freight,
-    COALESCE(SUM(other_charges), 0) AS total_other
+    COALESCE(SUM(total_amount), 0) AS total_amount
 FROM purchases WHERE 1=1";
 $cost_params = [];
 $cost_types = "";
@@ -52,46 +97,38 @@ $cost_stmt->execute();
 $purchase_totals = $cost_stmt->get_result()->fetch_assoc();
 $cost_stmt->close();
 
-$avg_diesel_rate = 0;
-$avg_freight_rate = 0;
-$avg_other_rate = 0;
-if ($purchase_totals['total_qty'] > 0) {
-    $avg_diesel_rate  = $purchase_totals['total_amount'] / $purchase_totals['total_qty'];
-    $avg_freight_rate = $purchase_totals['total_freight'] / $purchase_totals['total_qty'];
-    $avg_other_rate   = $purchase_totals['total_other'] / $purchase_totals['total_qty'];
-}
+$avg_diesel_rate = $purchase_totals['total_qty'] > 0 ? $purchase_totals['total_amount'] / $purchase_totals['total_qty'] : 0;
+
 
 // Compute totals for the summary row
 $total_sale_value = 0;
 $total_diesel_cost = 0;
-$total_freight_cost = 0;
-$total_other_cost = 0;
+
 $total_profit = 0;
 $sales_data = [];
 while ($row = $result->fetch_assoc()) {
     $qty = $row['quantity'];
     $diesel_cost  = $qty * $avg_diesel_rate;
-    $freight_cost = $row['freight_charges'];
-    $other_cost   = $row['other_charges'];
-    $profit = $row['total_amount'] - $diesel_cost - $freight_cost - $other_cost;
+
+
+    $profit = $row['total_amount'] - $diesel_cost;
 
     $total_sale_value  += $row['total_amount'];
     $total_diesel_cost += $diesel_cost;
-    $total_freight_cost += $freight_cost;
-    $total_other_cost  += $other_cost;
+
     $total_profit      += $profit;
 
     $sales_data[] = [
         'row' => $row,
         'diesel_cost' => $diesel_cost,
-        'freight_cost' => $freight_cost,
-        'other_cost' => $other_cost,
+
         'profit' => $profit,
     ];
 }
 
 include '../../includes/header.php';
 ?>
+<?= $delete_msg ?>
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-list mr-1"></i> Sales List</h1>
     <div>
@@ -134,23 +171,10 @@ include '../../includes/header.php';
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Freight Cost</div>
-                        <div class="h5 mb-0 font-weight-bold text-warning"><?= number_format($total_freight_cost, 0) ?></div>
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Avg Rate/Ton</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($avg_diesel_rate, 0) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-truck fa-2x text-gray-300"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-2 col-md-4 mb-3">
-        <div class="card border-left-info shadow h-100 py-2">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Other Expenses</div>
-                        <div class="h5 mb-0 font-weight-bold text-info"><?= number_format($total_other_cost, 0) ?></div>
-                    </div>
-                    <div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-300"></i></div>
                 </div>
             </div>
         </div>
@@ -177,7 +201,7 @@ include '../../includes/header.php';
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
                         <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Avg Cost/Ton</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($avg_diesel_rate + $avg_freight_rate + $avg_other_rate, 0) ?></div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800"><?= number_format($avg_diesel_rate , 0) ?></div>
                     </div>
                     <div class="col-auto"><i class="fas fa-calculator fa-2x text-gray-300"></i></div>
                 </div>
@@ -234,18 +258,17 @@ include '../../includes/header.php';
                         <th>Date</th>
                         <th>Customer</th>
                         <th>Qty</th>
+                        <th class="text-right">Rate/Ton</th>
                         <th class="text-right">Sale Value</th>
                         <th class="text-right">Diesel Cost</th>
-                        <th class="text-right">Freight</th>
-                        <th class="text-right">Other</th>
+
                         <th class="text-right">Net Profit</th>
-                        <th>Payment</th>
-                        <th class="no-print">Print</th>
+                        <th class="text-center no-print">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($sales_data)): ?>
-                        <tr><td colspan="12" class="text-center text-muted py-4">No sales found.</td></tr>
+                        <tr><td colspan="10" class="text-center text-muted py-4">No sales found.</td></tr>
                     <?php else:
                         $i = 1;
                         foreach ($sales_data as $sd):
@@ -256,30 +279,18 @@ include '../../includes/header.php';
                             <td><?= htmlspecialchars($row['sale_date']) ?></td>
                             <td><?= htmlspecialchars($row['customer_name']) ?></td>
                             <td><?= number_format($row['quantity'], 3) ?></td>
+                            <td class="text-right"><?= number_format($row['rate_per_ton'], 0) ?></td>
                             <td class="text-right font-weight-bold"><?= number_format($row['total_amount'], 0) ?></td>
                             <td class="text-right text-danger"><?= number_format($sd['diesel_cost'], 0) ?></td>
-                            <td class="text-right text-warning"><?= number_format($sd['freight_cost'], 0) ?></td>
-                            <td class="text-right text-info"><?= number_format($sd['other_cost'], 0) ?></td>
+
+
                             <td class="text-right font-weight-bold <?= $sd['profit'] >= 0 ? 'text-success' : 'text-danger' ?>">
                                 <?= number_format($sd['profit'], 0) ?>
                             </td>
-                            <td>
-                                <?php if (!empty($row['payment_type'])): ?>
-                                    <span class="badge badge-<?= $row['payment_type'] === 'Credit' ? 'warning' : 'success' ?>">
-                                        <?= htmlspecialchars($row['payment_type']) ?>
-                                    </span>
-                                <?php else: ?>
-                                    <span class="badge badge-secondary">Not Set</span>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row['payment_method']) && $row['payment_method'] != 'Cash'): ?>
-                                    <small class="d-block text-muted"><?= htmlspecialchars($row['payment_method']) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td class="no-print">
-                                <a href="print.php?id=<?= $row['id'] ?>" target="_blank" class="btn btn-sm btn-dark" title="Print Invoice">
-                                    <i class="fas fa-print"></i>
-                                </a>
+                            <td class="text-center no-print" style="white-space:nowrap">
+                                <a href="edit.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-pen"></i></a>
+                                <a href="print.php?id=<?= $row['id'] ?>" target="_blank" class="btn btn-sm btn-outline-info" title="Print"><i class="fas fa-print"></i></a>
+                                <a href="list.php?delete=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this sale? This will reverse ledger entries and adjust stock.')"><i class="fas fa-trash"></i></a>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>
@@ -287,11 +298,11 @@ include '../../includes/header.php';
                 <?php if (!empty($sales_data)): ?>
                 <tfoot class="table-active">
                     <tr>
-                        <th colspan="5" class="text-right">Totals:</th>
+                        <th colspan="6" class="text-right">Totals:</th>
                         <th class="text-right"><?= number_format($total_sale_value, 0) ?></th>
                         <th class="text-right text-danger"><?= number_format($total_diesel_cost, 0) ?></th>
-                        <th class="text-right text-warning"><?= number_format($total_freight_cost, 0) ?></th>
-                        <th class="text-right text-info"><?= number_format($total_other_cost, 0) ?></th>
+
+                        
                         <th class="text-right <?= $total_profit >= 0 ? 'text-success' : 'text-danger' ?>"><?= number_format($total_profit, 0) ?></th>
                         <th></th>
                     </tr>
@@ -310,13 +321,10 @@ include '../../includes/header.php';
     <div class="card-body">
         <p class="mb-0 text-muted small">
             Diesel cost rate: <strong>$ <?= number_format($avg_diesel_rate, 2) ?>/ton</strong> &middot;
-            Freight rate: <strong>$ <?= number_format($avg_freight_rate, 2) ?>/ton</strong> &middot;
-            Other charges rate: <strong>$ <?= number_format($avg_other_rate, 2) ?>/ton</strong> &middot;
-            Total cost rate: <strong>$ <?= number_format($avg_diesel_rate + $avg_freight_rate + $avg_other_rate, 2) ?>/ton</strong>
+           
+            
+            Total cost rate: <strong>$ <?= number_format($avg_diesel_rate , 2) ?>/ton</strong>
             &mdash; Calculated from all purchase records<?= !empty($from_date) || !empty($to_date) ? ' up to the selected date range' : '' ?>.
-        </p>
-        <p class="mb-0 text-muted small mt-1">
-            <i class="fas fa-info-circle text-info"></i> Freight and Other charges shown are the actual amounts from each sale record.
         </p>
     </div>
 </div>

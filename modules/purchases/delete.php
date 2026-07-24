@@ -25,8 +25,6 @@ try {
     }
 
     $conn->query("DELETE FROM purchase_tankers WHERE purchase_id = $id");
-    $conn->query("DELETE FROM purchase_returns WHERE purchase_id = $id");
-    $conn->query("DELETE FROM purchase_adjustments WHERE purchase_id = $id");
     $conn->query("DELETE FROM supplier_ledger WHERE reference_type = 'purchase' AND description LIKE '%Invoice #" . $purchase['invoice_no'] . "%'");
     $conn->query("DELETE FROM purchases WHERE id = $id");
 

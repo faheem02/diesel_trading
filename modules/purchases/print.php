@@ -74,7 +74,6 @@ if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/diesel_trading/modules/logo/WhatsA
         <thead>
             <tr>
                 <th>#</th>
-                <th>Tank</th>
                 <th>Tanker No</th>
                 <th>Driver</th>
                 <th>Mobile</th>
@@ -87,7 +86,6 @@ if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/diesel_trading/modules/logo/WhatsA
             <?php $i = 1; $totalQty = 0; $grandTotal = 0; while ($t = $tankers->fetch_assoc()): ?>
             <tr>
                 <td><?= $i++ ?></td>
-                <td><?= htmlspecialchars($t['tank_name'] ?? '-') ?></td>
                 <td><?= htmlspecialchars($t['tanker_number']) ?></td>
                 <td><?= htmlspecialchars($t['driver_name']) ?></td>
                 <td><?= htmlspecialchars($t['driver_mobile']) ?></td>
@@ -99,7 +97,7 @@ if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/diesel_trading/modules/logo/WhatsA
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" class="text-right">Totals:</td>
+                <td colspan="4" class="text-right">Totals:</td>
                 <td class="text-right"><?= number_format($totalQty, 3) ?></td>
                 <td></td>
                 <td class="text-right">$ <?= number_format($grandTotal, 2) ?></td>

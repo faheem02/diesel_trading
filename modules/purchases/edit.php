@@ -14,14 +14,16 @@ $existing_tankers = $conn->query("SELECT * FROM purchase_tankers WHERE purchase_
 $success = "";
 $error = "";
 
+require_once '../../includes/tank_helper.php';
+$tanks_list = resolve_default_tank($conn);
+$single_tank = $tanks_list[0]; // default tank always exists (auto-created if table was empty)
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $invoice_no      = trim($_POST['invoice_no']);
     $purchase_date   = $_POST['purchase_date'];
     $supplier_id     = intval($_POST['supplier_id']);
     $payment_status  = $_POST['payment_status'];
     $paid_amount     = floatval($_POST['paid_amount'] ?? 0);
-    $bank_account_id = intval($_POST['bank_account_id'] ?? 0);
-    $payment_method  = trim($_POST['payment_method'] ?? 'Cash');
 
     if (empty($invoice_no) || empty($purchase_date) || $supplier_id <= 0) {
         $error = "Please fill all required fields.";
@@ -29,6 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please add at least one tanker entry.";
     } else {
         $tankers = $_POST['tankers'];
+        if ($single_tank) {
+            foreach ($tankers as &$t) { $t['tank_id'] = $single_tank['id']; }
+            unset($t);
+        }
         $total_qty = 0;
         $total_amount = 0;
 
@@ -94,21 +100,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $tanker_stmt->close();
 
                 $ledger_desc = "Purchase Invoice #$invoice_no" . ($payment_status === 'Paid' ? " (Paid $ " . number_format($paid_amount, 0) . ")" : "");
-                $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type) VALUES ($supplier_id, '$purchase_date', '$ledger_desc', 0, $total_amount, 0, 'purchase')");
+                $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type, reference_id) VALUES ($supplier_id, '$purchase_date', '$ledger_desc', 0, $total_amount, 0, 'purchase', $id)");
                 $entry_id = $conn->insert_id;
                 $bal = $conn->query("SELECT COALESCE(SUM(credit),0) - COALESCE(SUM(debit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
                 $conn->query("UPDATE supplier_ledger SET balance = $bal WHERE id = $entry_id");
 
                 if (($payment_status === 'Paid' || $payment_status === 'Partial Paid') && $paid_amount > 0) {
                     $pay_desc = "Payment against Invoice #$invoice_no";
-                    $bank_id_for_ledger = ($bank_account_id > 0) ? $bank_account_id : null;
-                    $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type, bank_account_id, payment_method) VALUES ($supplier_id, '$purchase_date', '$pay_desc', $paid_amount, 0, 0, 'payment', " . ($bank_id_for_ledger ?: 'NULL') . ", '$payment_method')");
+                    $conn->query("INSERT INTO supplier_ledger (supplier_id, transaction_date, description, debit, credit, balance, reference_type, bank_account_id, payment_method) VALUES ($supplier_id, '$purchase_date', '$pay_desc', $paid_amount, 0, 0, 'payment', NULL, 'Cash')");
                     $e2 = $conn->insert_id;
                     $b2 = $conn->query("SELECT COALESCE(SUM(credit),0) - COALESCE(SUM(debit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
                     $conn->query("UPDATE supplier_ledger SET balance = $b2 WHERE id = $e2");
-                    if ($bank_id_for_ledger) {
-                        $conn->query("UPDATE bank_accounts SET current_balance = current_balance - $paid_amount WHERE id = $bank_account_id");
-                    }
                 }
 
                 $final_bal = $conn->query("SELECT COALESCE(SUM(credit),0) - COALESCE(SUM(debit),0) AS bal FROM supplier_ledger WHERE supplier_id = $supplier_id")->fetch_assoc()['bal'];
@@ -126,10 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $suppliers = $conn->query("SELECT id, company_name FROM suppliers ORDER BY company_name");
-$bank_accounts = $conn->query("SELECT id, account_name, bank_name, account_number, account_type, current_balance FROM bank_accounts ORDER BY account_type ASC, account_name ASC");
-$tanks_res = $conn->query("SELECT id, tank_name FROM tanks ORDER BY tank_name");
-$tanks_list = [];
-while($t = $tanks_res->fetch_assoc()) $tanks_list[] = $t;
 
 include '../../includes/header.php';
 ?>
@@ -200,36 +198,6 @@ include '../../includes/header.php';
                         <input type="number" step="0.01" min="0" name="paid_amount" id="paid_amount" class="form-control" value="<?= htmlspecialchars($_POST['paid_amount'] ?? $purchase['paid_amount']) ?>">
                     </div>
                 </div>
-                <div class="col-md-4" id="payment_account_group">
-                    <div class="form-group">
-                        <label class="small font-weight-bold">Payment Method</label>
-                        <select name="payment_method" id="payment_method" class="form-control">
-                            <option value="Cash"          <?= (($_POST['payment_method'] ?? $purchase['payment_method']) === 'Cash') ? 'selected' : '' ?>>Cash</option>
-                            <option value="Bank Transfer" <?= (($_POST['payment_method'] ?? '') === 'Bank Transfer') ? 'selected' : '' ?>>Bank Transfer</option>
-                            <option value="Cheque"        <?= (($_POST['payment_method'] ?? '') === 'Cheque') ? 'selected' : '' ?>>Cheque</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="col-md-4" id="bank_account_group">
-                    <div class="form-group">
-                        <label class="small font-weight-bold" id="acct_label">Cash Account <span class="text-danger">*</span></label>
-                        <select name="bank_account_id" id="bank_account_id" class="form-control">
-                            <option value="">-- Select Account --</option>
-                            <?php
-                            $bank_accounts->data_seek(0);
-                            while ($b = $bank_accounts->fetch_assoc()):
-                                $display = htmlspecialchars($b['account_name']);
-                                if ($b['bank_name']) $display = htmlspecialchars($b['bank_name']) . ' — ' . $display;
-                                if ($b['account_number']) $display .= ' (' . htmlspecialchars($b['account_number']) . ')';
-                                $display .= ' | Bal: ' . number_format($b['current_balance'], 2);
-                            ?>
-                                <option value="<?= $b['id'] ?>" data-type="<?= $b['account_type'] ?>" <?= (($_POST['bank_account_id'] ?? '') == $b['id']) ? 'selected' : '' ?>>
-                                    [<?= $b['account_type'] ?>] <?= $display ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -244,7 +212,6 @@ include '../../includes/header.php';
                 <table class="table table-bordered mb-0" id="tankersTable">
                     <thead class="thead-light">
                         <tr>
-                            <th style="min-width:140px">Tank <span class="text-danger">*</span></th>
                             <th style="min-width:120px">Tanker No</th>
                             <th style="min-width:120px">Driver Name</th>
                             <th style="min-width:110px">Driver Mobile</th>
@@ -261,14 +228,7 @@ include '../../includes/header.php';
                         while ($et = $existing_tankers->fetch_assoc()):
                         ?>
                         <tr class="tanker-row">
-                            <td>
-                                <select name="tankers[<?= $ei ?>][tank_id]" class="form-control form-control-sm" required>
-                                    <option value="">-- Tank --</option>
-                                    <?php foreach($tanks_list as $tl): ?>
-                                        <option value="<?= $tl['id'] ?>" <?= ($et['tank_id'] == $tl['id']) ? 'selected' : '' ?>><?= htmlspecialchars($tl['tank_name']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </td>
+                            <input type="hidden" name="tankers[<?= $ei ?>][tank_id]" value="<?= $single_tank['id'] ?>">
                             <td><input type="text" name="tankers[<?= $ei ?>][tanker_number]" class="form-control form-control-sm" value="<?= htmlspecialchars($et['tanker_number']) ?>"></td>
                             <td><input type="text" name="tankers[<?= $ei ?>][driver_name]" class="form-control form-control-sm" value="<?= htmlspecialchars($et['driver_name']) ?>"></td>
                             <td><input type="text" name="tankers[<?= $ei ?>][driver_mobile]" class="form-control form-control-sm" value="<?= htmlspecialchars($et['driver_mobile']) ?>"></td>
@@ -281,7 +241,7 @@ include '../../includes/header.php';
                     </tbody>
                     <tfoot class="table-active">
                         <tr>
-                            <th colspan="4" class="text-right">Totals:</th>
+                            <th colspan="3" class="text-right">Totals:</th>
                             <th><span id="totalQty">0.000</span></th>
                             <th></th>
                             <th><span id="grandTotal">0.00</span></th>
@@ -301,7 +261,6 @@ include '../../includes/header.php';
 
 <script>
 let tankerIndex = <?= $ei ?>;
-const tanksOptions = `<?php foreach($tanks_list as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['tank_name']) ?></option><?php endforeach; ?>`;
 
 function calculateRow(row) {
     const qty = parseFloat(row.querySelector('.tanker-qty').value) || 0;
@@ -326,7 +285,7 @@ document.getElementById('addTankerBtn').addEventListener('click', function() {
     row.className = 'tanker-row';
     const i = tankerIndex++;
     row.innerHTML = `
-        <td><select name="tankers[${i}][tank_id]" class="form-control form-control-sm" required><option value="">-- Tank --</option>${tanksOptions}</select></td>
+        <input type="hidden" name="tankers[${i}][tank_id]" value="<?= $single_tank['id'] ?>">
         <td><input type="text" name="tankers[${i}][tanker_number]" class="form-control form-control-sm"></td>
         <td><input type="text" name="tankers[${i}][driver_name]" class="form-control form-control-sm"></td>
         <td><input type="text" name="tankers[${i}][driver_mobile]" class="form-control form-control-sm"></td>
@@ -345,41 +304,17 @@ document.querySelectorAll('#tankersBody .tanker-row').forEach(row => {
 });
 
 const paymentStatus  = document.getElementById('payment_status');
-const pmSelect       = document.getElementById('payment_method');
-const acctSelect     = document.getElementById('bank_account_id');
-const acctLabel      = document.getElementById('acct_label');
-const bankAcctGroup  = document.getElementById('bank_account_group');
-const payAcctGroup   = document.getElementById('payment_account_group');
 const paidAmountEl   = document.getElementById('paid_amount');
-
-function filterAccounts() {
-    const isCash = pmSelect.value === 'Cash';
-    const wantType = isCash ? 'Cash' : 'Bank';
-    acctLabel.innerHTML = (isCash ? 'Cash Account' : 'Bank Account') + ' <span class="text-danger">*</span>';
-    let firstMatch = null;
-    acctSelect.querySelectorAll('option[data-type]').forEach(opt => {
-        const show = opt.dataset.type === wantType;
-        opt.style.display = show ? '' : 'none';
-        if (show && !firstMatch) firstMatch = opt.value;
-    });
-    const cur = acctSelect.querySelector('option:checked');
-    if (!cur || cur.style.display === 'none') acctSelect.value = firstMatch || '';
-}
 
 function togglePaidAmount() {
     if (paymentStatus.value === 'Credit') {
         paidAmountEl.value = 0; paidAmountEl.readOnly = true;
-        payAcctGroup.style.display = 'none'; bankAcctGroup.style.display = 'none';
-        acctSelect.required = false;
     } else {
         paidAmountEl.readOnly = false;
-        payAcctGroup.style.display = ''; bankAcctGroup.style.display = '';
-        acctSelect.required = true; filterAccounts();
     }
 }
 
 paymentStatus.addEventListener('change', togglePaidAmount);
-pmSelect.addEventListener('change', filterAccounts);
 togglePaidAmount();
 calculateGrandTotals();
 </script>

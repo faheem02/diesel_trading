@@ -74,36 +74,14 @@ $res = $stmt->get_result();
 while ($row = $res->fetch_assoc()) $transactions[] = $row;
 $stmt->close();
 
-// Stock transactions (direct cash purchases/sales from stock modules)
-$sql = "SELECT
-            sl.transaction_date AS txn_date,
-            sl.description,
-            CASE WHEN sl.movement_type = 'OUT' THEN 'IN' ELSE 'OUT' END AS direction,
-            sl.amount,
-            t.tank_name AS party,
-            'Stock' AS party_type,
-            sl.payment_method,
-            'Cash' AS account_name
-        FROM stock_ledger sl
-        JOIN tanks t ON sl.tank_id = t.id
-        WHERE sl.amount > 0
-          AND sl.payment_method = 'Cash'
-          AND sl.transaction_date BETWEEN ? AND ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ss", $from_date, $to_date);
-$stmt->execute();
-$res = $stmt->get_result();
-while ($row = $res->fetch_assoc()) $transactions[] = $row;
-$stmt->close();
-
 // General party payables / receivables
 // payable (credit) → we pay party → Cash OUT
 // receivable (debit) → party pays us → Cash IN
 $sql = "SELECT
             pl.transaction_date AS txn_date,
             pl.description,
-            CASE WHEN pl.debit > 0 THEN 'IN' ELSE 'OUT' END AS direction,
-            CASE WHEN pl.debit > 0 THEN pl.debit ELSE pl.credit END AS amount,
+            CASE WHEN pl.reference_type = 'receivable' THEN 'IN' ELSE 'OUT' END AS direction,
+            CASE WHEN pl.reference_type = 'receivable' THEN pl.credit ELSE pl.debit END AS amount,
             pa.person_name AS party,
             'General Party' AS party_type,
             pl.payment_method,

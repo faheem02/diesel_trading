@@ -14,6 +14,7 @@ $sales_mgmt_active   = in_array($active_page ?? '', ['sale_entry', 'sale_list', 
 $tanker_active       = in_array($active_page ?? '', ['tanker_list', 'tanker_expense_add', 'tanker_expense_list', 'expense_add', 'expense_list']);
 $accounts_active     = in_array($active_page ?? '', ['cashbook', 'accounts_manage', 'general_ledger']);
 $general_report_active = in_array($active_page ?? '', ['general_report', 'general_payable', 'general_receivable']);
+$manual_entry_active   = in_array($active_page ?? '', ['manual_entry']);
 
 ?>
 <!DOCTYPE html>
@@ -577,6 +578,25 @@ $general_report_active = in_array($active_page ?? '', ['general_report', 'genera
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_receivable' ? 'active' : '' ?>" href="<?= $base_url ?>modules/general/add_receivable.php">
                             <i class="fas fa-fw fa-dollar-sign fa-sm mr-1"></i> Received by Younas
+                        </a>
+                    </div>
+                </div>
+            </li>
+            <hr class="sidebar-divider d-none d-md-block">
+            <div class="sidebar-heading">Manual Entries</div>
+            <li class="nav-item <?= $manual_entry_active ? 'active' : '' ?>">
+                <a class="nav-link <?= $manual_entry_active ? '' : 'collapsed' ?>" href="#" data-toggle="collapse" data-target="#collapseManual" aria-expanded="<?= $manual_entry_active ? 'true' : 'false' ?>" aria-controls="collapseManual">
+                    <i class="fas fa-fw fa-clipboard-list"></i>
+                    <span>Manual Entries</span>
+                </a>
+                <div id="collapseManual" class="collapse <?= $manual_entry_active ? 'show' : '' ?>" aria-labelledby="headingManual" data-parent="#accordionSidebar">
+                    <div class="py-2 collapse-inner rounded">
+                        <h6 class="collapse-header">Manage Entries:</h6>
+                        <a class="collapse-item <?= ($active_page ?? '') === 'manual_entry' && basename($_SERVER['PHP_SELF'] ?? '') === 'add.php' ? 'active' : '' ?>" href="<?= $base_url ?>modules/manual_entries/add.php">
+                            <i class="fas fa-fw fa-plus-circle fa-sm mr-1"></i> New Entry
+                        </a>
+                        <a class="collapse-item <?= ($active_page ?? '') === 'manual_entry' && basename($_SERVER['PHP_SELF'] ?? '') === 'list.php' ? 'active' : '' ?>" href="<?= $base_url ?>modules/manual_entries/list.php">
+                            <i class="fas fa-fw fa-list fa-sm mr-1"></i> Entries List
                         </a>
                     </div>
                 </div>

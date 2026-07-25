@@ -198,29 +198,32 @@ $manual_entry_active   = in_array($active_page ?? '', ['manual_entry']);
             color: var(--amber) !important;
         }
         .collapse-inner {
-            background: transparent !important;
-            margin: 0 6px !important;
+            background: #1e2a38 !important;
+            margin: 4px 6px !important;
+            padding: 6px !important;
+            border-radius: 6px !important;
         }
         .collapse-inner .collapse-header {
-            color: rgba(243, 156, 18, 0.6) !important;
+            color: var(--amber) !important;
             font-size: 0.65rem !important;
             letter-spacing: 0.5px;
             padding: 0.3rem 0.5rem !important;
         }
         .collapse-inner .collapse-item {
-            color: rgba(255,255,255,0.75) !important;
-            padding: 0.35rem 0.5rem !important;
+            color: #ddd !important;
+            padding: 0.5rem 0.75rem !important;
             border-radius: 4px !important;
             font-size: 0.85rem !important;
+            background: #253242 !important;
             transition: all 0.15s ease;
         }
         .collapse-inner .collapse-item:hover,
         .collapse-inner .collapse-item:focus {
-            background: rgba(243, 156, 18, 0.15) !important;
+            background: #2a4a6b !important;
             color: #fff !important;
         }
         .collapse-inner .collapse-item.active {
-            background: rgba(243, 156, 18, 0.12) !important;
+            background: #2a4a6b !important;
             color: var(--amber) !important;
             font-weight: 600;
         }
@@ -392,6 +395,23 @@ $manual_entry_active   = in_array($active_page ?? '', ['manual_entry']);
             .btn {
                 padding: 6px 16px !important;
                 font-size: 13px !important;
+            }
+
+            /* Mobile sidebar collapse fix */
+            .sidebar {
+                width: 11rem !important;
+            }
+            .sidebar .nav-item .collapse .collapse-inner,
+            .sidebar .nav-item .collapsing .collapse-inner {
+                background: #1e2a38 !important;
+                padding: 8px !important;
+            }
+            .sidebar .nav-item .collapse .collapse-inner .collapse-item,
+            .sidebar .nav-item .collapsing .collapse-inner .collapse-item {
+                color: #ddd !important;
+                opacity: 1 !important;
+                padding: 0.6rem 0.75rem !important;
+                background: #253242 !important;
             }
         }
     </style>

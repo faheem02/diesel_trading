@@ -27,5 +27,18 @@ require_once __DIR__ . '/config.php';
     <script src="<?= $asset_path ?>vendor/datatables/jquery.dataTables.min.js"></script>
     <script src="<?= $asset_path ?>vendor/datatables/dataTables.bootstrap4.min.js"></script>
     <script src="<?= $asset_path ?>js/sb-admin-2.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.innerWidth < 768) {
+            document.querySelectorAll('.sidebar .collapse.show').forEach(function(el) {
+                el.classList.remove('show');
+            });
+            document.querySelectorAll('.sidebar .nav-link[aria-expanded="true"]').forEach(function(el) {
+                el.setAttribute('aria-expanded', 'false');
+                el.classList.add('collapsed');
+            });
+        }
+    });
+    </script>
 </body>
 </html>

@@ -43,14 +43,6 @@ $logo = $base_url . "modules/logo/WhatsApp%20Image%202026-07-04%20at%201.20.58%2
 </head>
 <body>
 <div class="print-wrapper">
-    <div class="print-header">
-        <div class="logo"><img src="<?= $logo ?>" alt="Logo"></div>
-        <div class="brand">
-            <div class="company">Muhammad Younas</div>
-            <div class="sub">Diesel Management System</div>
-            <div class="contact"><i>&#9742;</i> +93 70 260 7159</div>
-        </div>
-    </div>
 
     <h2>دستی اندراج رسید</h2>
 

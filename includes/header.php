@@ -594,10 +594,10 @@ $manual_entry_active   = in_array($active_page ?? '', ['manual_entry']);
                             <i class="fas fa-fw fa-users fa-sm mr-1"></i> Parties
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_payable' ? 'active' : '' ?>" href="<?= $base_url ?>modules/general/add_payable.php">
-                            <i class="fas fa-fw fa-hand-holding-usd fa-sm mr-1"></i> Paid by Younas
+                            <i class="fas fa-fw fa-hand-holding-usd fa-sm mr-1"></i> Cash Out
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'general_receivable' ? 'active' : '' ?>" href="<?= $base_url ?>modules/general/add_receivable.php">
-                            <i class="fas fa-fw fa-dollar-sign fa-sm mr-1"></i> Received by Younas
+                            <i class="fas fa-fw fa-dollar-sign fa-sm mr-1"></i> Cash In
                         </a>
                     </div>
                 </div>
@@ -617,6 +617,9 @@ $manual_entry_active   = in_array($active_page ?? '', ['manual_entry']);
                         </a>
                         <a class="collapse-item <?= ($active_page ?? '') === 'manual_entry' && basename($_SERVER['PHP_SELF'] ?? '') === 'list.php' ? 'active' : '' ?>" href="<?= $base_url ?>modules/manual_entries/list.php">
                             <i class="fas fa-fw fa-list fa-sm mr-1"></i> Entries List
+                        </a>
+                        <a class="collapse-item <?= ($active_page ?? '') === 'manual_entry_ledger' ? 'active' : '' ?>" href="<?= $base_url ?>modules/manual_entries/open_ledger.php">
+                            <i class="fas fa-fw fa-book fa-sm mr-1"></i> Ledger
                         </a>
                     </div>
                 </div>

@@ -6,8 +6,10 @@ require_once '../../includes/db.php';
 
 $from_date = $_GET['from_date'] ?? '';
 $to_date   = $_GET['to_date'] ?? '';
+$search    = trim($_GET['search'] ?? '');
 $print_mode = isset($_GET['print']) && $_GET['print'] == 1;
-$delete_id  = isset($_GET['delete']) ? intval($_GET['delete']) : 0;
+$delete_person = trim($_GET['delete_person'] ?? '');
+$delete_id     = isset($_GET['delete']) ? intval($_GET['delete']) : 0;
 
 if ($delete_id > 0) {
     $stmt = $conn->prepare("DELETE FROM manual_entries WHERE id = ?");
@@ -17,8 +19,29 @@ if ($delete_id > 0) {
     header("Location: list.php");
     exit;
 }
+if (!empty($delete_person)) {
+    $stmt = $conn->prepare("DELETE FROM manual_entries WHERE person_name = ?");
+    $stmt->bind_param("s", $delete_person);
+    $stmt->execute();
+    $stmt->close();
+    $redirect = "list.php";
+    $params = [];
+    if (!empty($from_date)) $params[] = "from_date=" . urlencode($from_date);
+    if (!empty($to_date))   $params[] = "to_date=" . urlencode($to_date);
+    if (!empty($search))    $params[] = "search=" . urlencode($search);
+    if (!empty($params)) $redirect .= "?" . implode("&", $params);
+    header("Location: $redirect");
+    exit;
+}
 
-$sql = "SELECT * FROM manual_entries WHERE 1=1";
+$sql = "SELECT person_name,
+               COUNT(*) AS entry_count,
+               MIN(entry_date) AS first_date,
+               MAX(entry_date) AS last_date,
+               SUM(quantity) AS quantity,
+               SUM(total_amount) AS total_amount,
+               SUM(paid_amount) AS paid_amount
+        FROM manual_entries WHERE 1=1";
 $params = [];
 $types = "";
 
@@ -32,7 +55,14 @@ if (!empty($to_date)) {
     $params[] = $to_date;
     $types .= "s";
 }
-$sql .= " ORDER BY entry_date DESC, id DESC";
+if (!empty($search)) {
+    $sql .= " AND (person_name LIKE ? OR description LIKE ? OR payment_source LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $types .= "sss";
+}
+$sql .= " GROUP BY person_name ORDER BY person_name ASC";
 
 $stmt = $conn->prepare($sql);
 if (!empty($params)) {
@@ -45,14 +75,17 @@ $rows = [];
 while ($row = $result->fetch_assoc()) {
     $rows[] = $row;
 }
+$stmt->close();
 
 $total_amount_sum = 0;
 $paid_amount_sum  = 0;
 $balance_sum      = 0;
+$total_entries    = 0;
 foreach ($rows as $r) {
     $total_amount_sum += $r['total_amount'];
     $paid_amount_sum  += $r['paid_amount'];
     $balance_sum      += ($r['total_amount'] - $r['paid_amount']);
+    $total_entries    += $r['entry_count'];
 }
 
 if ($print_mode) {
@@ -82,56 +115,50 @@ if ($print_mode) {
         @media print { body { background: #fff; padding: 0; } .print-wrapper { box-shadow: none; border-radius: 0; padding: 15px 20px; } .no-print { display: none; } table thead th { background: #2C3E50 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } table tbody tr.total-row { background: #f8f9fc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     </style></head><body>
     <div class="print-wrapper">
-        <div class="print-header">
-            <div class="logo"><img src="<?= $logo ?>" alt="Logo"></div>
-            <div class="brand">
-                <div class="company">Muhammad Younas</div>
-                <div class="sub">Diesel Management System</div>
-                <div class="contact"><i>&#9742;</i> +93 70 260 7159</div>
-            </div>
-        </div>
         <h2>اندراج کی فہرست</h2>
         <div class="subtitle">
             مدت: <?= htmlspecialchars($from_date ?: 'سب') ?> سے <?= htmlspecialchars($to_date ?: 'سب') ?>
-            &nbsp;|&nbsp; کل اندراجات: <?= count($rows) ?>
+            <?php if ($search): ?>
+                &nbsp;|&nbsp; تلاش: "<?= htmlspecialchars($search) ?>"
+            <?php endif; ?>
+            &nbsp;|&nbsp; کل اشخاص: <?= count($rows) ?> | کل اندراجات: <?= $total_entries ?>
         </div>
 
         <table>
             <thead><tr>
-                <th>SR نمبر</th><th>تاریخ</th><th>نام</th><th>تفصیل</th>
-                <th>تعداد</th><th>فی دانہ</th>
-                <th>کل رقم</th><th>وصولی</th>
-                <th>زریعہ وصولی</th><th>باقی</th>
+                <th>#</th><th>نام</th><th>تعداد اندراجات</th><th>تاریخ</th>
+                <th>تعداد</th><th>کل رقم</th><th>وصولی</th><th>باقی</th>
             </tr></thead>
             <tbody>
                 <?php if (empty($rows)): ?>
-                    <tr><td colspan="10" style="color:#999;padding:20px;">کوئی اندراج نہیں ملا۔</td></tr>
+                    <tr><td colspan="8" style="color:#999;padding:20px;">کوئی اندراج نہیں ملا۔</td></tr>
                 <?php else:
+                    $i = 1;
                     foreach ($rows as $row):
                         $balance = $row['total_amount'] - $row['paid_amount'];
+                        $date_range = $row['first_date'] == $row['last_date']
+                            ? htmlspecialchars($row['first_date'])
+                            : htmlspecialchars($row['first_date']) . ' - ' . htmlspecialchars($row['last_date']);
                 ?>
                 <tr>
-                    <td><?= htmlspecialchars($row['sr_no']) ?></td>
-                    <td><?= htmlspecialchars($row['entry_date']) ?></td>
-                    <td><?= htmlspecialchars($row['person_name']) ?></td>
-                    <td><?= htmlspecialchars($row['description'] ?? '-') ?></td>
+                    <td><?= $i++ ?></td>
+                    <td style="font-weight:bold"><?= htmlspecialchars($row['person_name']) ?></td>
+                    <td><?= $row['entry_count'] ?></td>
+                    <td><small><?= $date_range ?></small></td>
                     <td><?= number_format($row['quantity'], 3) ?></td>
-                    <td><?= number_format($row['rate_per_ton'], 2) ?></td>
                     <td><?= number_format($row['total_amount'], 2) ?></td>
                     <td style="color:#28a745"><?= number_format($row['paid_amount'], 2) ?></td>
-                    <td><?= htmlspecialchars($row['payment_source'] ?? '-') ?></td>
                     <td style="font-weight:bold;color:<?= $balance > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance, 2) ?></td>
                 </tr>
                 <?php endforeach; endif; ?>
                 <?php if (!empty($rows)): ?>
                 <tr class="total-row">
                     <td colspan="2">کل</td>
-                    <td colspan="2"></td>
-                    <td><?= number_format(array_sum(array_column($rows, 'quantity')), 3) ?></td>
+                    <td><?= $total_entries ?></td>
                     <td></td>
+                    <td><?= number_format(array_sum(array_column($rows, 'quantity')), 3) ?></td>
                     <td><?= number_format($total_amount_sum, 2) ?></td>
                     <td><?= number_format($paid_amount_sum, 2) ?></td>
-                    <td></td>
                     <td style="color:<?= $balance_sum > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance_sum, 2) ?></td>
                 </tr>
                 <?php endif; ?>
@@ -156,7 +183,7 @@ include '../../includes/header.php';
         <a href="add.php" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm mr-1">
             <i class="fas fa-plus-circle"></i> نئی اندراج
         </a>
-        <button onclick="window.open('<?= $_SERVER['PHP_SELF'] ?>?from_date=<?= urlencode($from_date) ?>&to_date=<?= urlencode($to_date) ?>&print=1', '_blank', 'width=1100,height=700')" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm">
+        <button onclick="printFiltered()" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm">
             <i class="fas fa-print"></i> پرنٹ
         </button>
     </div>
@@ -204,41 +231,40 @@ include '../../includes/header.php';
             <table class="table table-bordered table-hover" id="entriesTable" width="100%" cellspacing="0" style="direction:rtl; text-align:right;">
                 <thead class="thead-dark">
                     <tr>
-                        <th style="text-align:center;">SR نمبر</th>
-                        <th>تاریخ</th>
+                        <th style="text-align:center;">#</th>
                         <th>نام</th>
-                        <th>تفصیل</th>
+                        <th style="text-align:center;">اندراجات</th>
+                        <th>تاریخ</th>
                         <th class="text-right">تعداد</th>
-                        <th class="text-right">فی دانہ</th>
                         <th class="text-right">کل رقم</th>
                         <th class="text-right">وصولی</th>
-                        <th>زریعہ وصولی</th>
                         <th class="text-right">باقی</th>
                         <th class="text-center">عمل</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
-                        <tr><td colspan="11" class="text-center text-muted py-4">کوئی اندراج نہیں ملا۔</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4">کوئی اندراج نہیں ملا۔</td></tr>
                     <?php else:
+                        $i = 1;
                         foreach ($rows as $row):
                             $balance = $row['total_amount'] - $row['paid_amount'];
+                            $date_range = $row['first_date'] == $row['last_date']
+                                ? htmlspecialchars($row['first_date'])
+                                : htmlspecialchars($row['first_date']) . ' - ' . htmlspecialchars($row['last_date']);
                     ?>
                         <tr>
-                            <td class="font-weight-bold"><?= htmlspecialchars($row['sr_no']) ?></td>
-                            <td><?= htmlspecialchars($row['entry_date']) ?></td>
-                            <td><?= htmlspecialchars($row['person_name']) ?></td>
-                            <td><?= htmlspecialchars($row['description'] ?? '-') ?></td>
+                            <td style="text-align:center"><?= $i++ ?></td>
+                            <td class="font-weight-bold"><?= htmlspecialchars($row['person_name']) ?></td>
+                            <td style="text-align:center"><span class="badge badge-primary"><?= $row['entry_count'] ?></span></td>
+                            <td><small><?= $date_range ?></small></td>
                             <td class="text-right font-weight-bold"><?= number_format($row['quantity'], 3) ?></td>
-                            <td class="text-right"><?= number_format($row['rate_per_ton'], 2) ?></td>
                             <td class="text-right"><?= number_format($row['total_amount'], 2) ?></td>
                             <td class="text-right font-weight-bold" style="color:#28a745"><?= number_format($row['paid_amount'], 2) ?></td>
-                            <td><?= htmlspecialchars($row['payment_source'] ?? '-') ?></td>
                             <td class="text-right font-weight-bold" style="color:<?= $balance > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance, 2) ?></td>
                             <td class="text-center" style="white-space:nowrap">
-                                <a href="edit.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-primary" title="ترمیم"><i class="fas fa-edit"></i></a>
-                                <a href="print.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-success ml-1" target="_blank" title="پرنٹ"><i class="fas fa-print"></i></a>
-                                <a href="?delete=<?= $row['id'] ?>" class="btn btn-sm btn-danger ml-1" onclick="return confirm('یہ اندراج حذف کریں؟')" title="حذف"><i class="fas fa-trash"></i></a>
+                                <a href="ledger.php?person=<?= urlencode($row['person_name']) ?>" class="btn btn-sm btn-info" title="ledger"><i class="fas fa-book"></i></a>
+                                <a href="list.php?delete_person=<?= urlencode($row['person_name']) ?>&from_date=<?= urlencode($from_date) ?>&to_date=<?= urlencode($to_date) ?>&search=<?= urlencode($search) ?>" class="btn btn-sm btn-danger ml-1" onclick="return confirm('کیا آپ واقعی اس شخص کے تمام اندراجات حذف کرنا چاہتے ہیں?');" title="حذف"><i class="fas fa-trash"></i></a>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>
@@ -247,12 +273,11 @@ include '../../includes/header.php';
                 <tfoot>
                     <tr class="font-weight-bold" style="background:#f8f9fc;">
                         <td colspan="2">کل</td>
-                        <td colspan="2"></td>
+                        <td style="text-align:center"><?= $total_entries ?></td>
+                        <td></td>
                         <td class="text-right"><?= number_format(array_sum(array_column($rows, 'quantity')), 3) ?></td>
-                        <td class="text-right"></td>
                         <td class="text-right"><?= number_format($total_amount_sum, 2) ?></td>
                         <td class="text-right" style="color:#28a745"><?= number_format($paid_amount_sum, 2) ?></td>
-                        <td></td>
                         <td class="text-right" style="color:<?= $balance_sum > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance_sum, 2) ?></td>
                         <td></td>
                     </tr>
@@ -275,3 +300,20 @@ $(document).ready(function() {
 </script>
 
 <?php include '../../includes/footer.php'; ?>
+
+<script>
+function printFiltered() {
+    var params = new URLSearchParams();
+    params.set('print', '1');
+
+    var dtSearch = document.querySelector('#entriesTable_filter input');
+    var fromVal = document.querySelector('input[name="from_date"]');
+    var toVal = document.querySelector('input[name="to_date"]');
+
+    if (dtSearch && dtSearch.value) params.set('search', dtSearch.value);
+    if (fromVal && fromVal.value) params.set('from_date', fromVal.value);
+    if (toVal && toVal.value) params.set('to_date', toVal.value);
+
+    window.open('list.php?' + params.toString(), '_blank', 'width=1100,height=700');
+}
+</script>

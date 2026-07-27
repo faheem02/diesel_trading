@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $current_bal = $conn->query("SELECT balance FROM personal_accounts WHERE id = $account_id")->fetch_assoc()['balance'] ?? 0;
             $new_balance = $current_bal - $amount;
 
-            $desc = "Payable: " . ($description ?: "Paid by Younas");
+            $desc = "Payable: " . ($description ?: "");
             $stmt = $conn->prepare("INSERT INTO personal_ledger (account_id, transaction_date, description, debit, credit, balance, reference_type, payment_method, bank_account_id) VALUES (?, ?, ?, ?, 0, ?, 'payable', 'Cash', NULL)");
             $stmt->bind_param("issdd", $account_id, $txn_date, $desc, $amount, $new_balance);
             if (!$stmt->execute()) {
@@ -46,7 +46,7 @@ include '../../includes/header.php';
 ?>
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-hand-holding-usd mr-1"></i> Add Payable</h1>
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-hand-holding-usd mr-1"></i> Paid By Younas</h1>
     <div>
         <a href="parties.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
             <i class="fas fa-arrow-left"></i> Back
@@ -64,7 +64,7 @@ include '../../includes/header.php';
 <form method="POST">
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-info-circle mr-1"></i> Payable Details</h6>
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-info-circle mr-1"></i> Paid By Younas Details</h6>
             <small class="text-muted">Record money you owe to a party (balance decreases)</small>
         </div>
         <div class="card-body">
@@ -105,7 +105,7 @@ include '../../includes/header.php';
     </div>
 
     <div class="d-flex justify-content-between mb-4">
-        <button type="submit" class="btn btn-warning shadow-sm"><i class="fas fa-save"></i> Save Payable</button>
+        <button type="submit" class="btn btn-warning shadow-sm"><i class="fas fa-save"></i> Paid By Younas</button>
         <a href="parties.php" class="btn btn-secondary shadow-sm"><i class="fas fa-times"></i> Cancel</a>
     </div>
 </form>

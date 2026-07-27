@@ -27,7 +27,7 @@ if (!empty($to_date)) {
     $date_params[] = $to_date;
 }
 
-$stmt = $conn->prepare("SELECT COUNT(*) AS total_entries, COALESCE(SUM(debit), 0) AS total_debit, COALESCE(SUM(credit), 0) AS total_credit FROM personal_ledger WHERE account_id = ? $date_filter");
+$stmt = $conn->prepare("SELECT COUNT(*) AS total_entries, COALESCE(SUM(CASE WHEN reference_type = 'payable' THEN debit ELSE 0 END), 0) AS total_paid, COALESCE(SUM(CASE WHEN reference_type = 'receivable' THEN credit ELSE 0 END), 0) AS total_received FROM personal_ledger WHERE account_id = ? $date_filter");
 $bind_types = "i" . $date_types;
 $bind_params = array_merge([$id], $date_params);
 $stmt->bind_param($bind_types, ...$bind_params);
@@ -36,8 +36,8 @@ $summary = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 $total_entries = $summary['total_entries'];
-$total_debit  = $summary['total_debit'];
-$total_credit = $summary['total_credit'];
+$total_paid    = $summary['total_paid'];
+$total_received = $summary['total_received'];
 
 $total_opening = $conn->query("SELECT COALESCE(SUM(credit), 0) AS total FROM personal_ledger WHERE account_id = $id AND reference_type = 'opening_balance'")->fetch_assoc()['total'];
 
@@ -118,12 +118,12 @@ if ($print_mode) {
                     <td class="text-right"><?= number_format($total_opening, 2) ?></td>
                 </tr>
                 <tr>
-                    <td>Received by Younas</td>
-                    <td class="text-right text-success"><?= number_format($total_debit, 2) ?></td>
+                    <td>Cash In</td>
+                    <td class="text-right text-success"><?= number_format($total_received, 2) ?></td>
                 </tr>
                 <tr>
-                    <td>Paid by Younas</td>
-                    <td class="text-right text-danger"><?= number_format($total_credit, 2) ?></td>
+                    <td>Cash Out</td>
+                    <td class="text-right text-danger"><?= number_format($total_paid, 2) ?></td>
                 </tr>
             </tbody>
             <tfoot>
@@ -197,8 +197,8 @@ include '../../includes/header.php';
             </thead>
             <tbody>
                 <tr><td>Opening Balance</td><td class="text-right font-weight-bold"><?= number_format($total_opening, 2) ?></td></tr>
-                <tr><td>Received by Younas</td><td class="text-right text-success font-weight-bold"><?= number_format($total_debit, 2) ?></td></tr>
-                <tr><td>Paid by Younas</td><td class="text-right text-danger font-weight-bold"><?= number_format($total_credit, 2) ?></td></tr>
+                <tr><td>Cash In</td><td class="text-right text-success font-weight-bold"><?= number_format($total_received, 2) ?></td></tr>
+                <tr><td>Cash Out</td><td class="text-right text-danger font-weight-bold"><?= number_format($total_paid, 2) ?></td></tr>
             </tbody>
             <tfoot>
                 <tr style="background:#f8f9fc;">

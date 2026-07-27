@@ -155,7 +155,9 @@ if ($print_mode) {
         <h6 class="m-0 font-weight-bold text-primary">
             <i class="fas fa-user mr-1"></i> <?= htmlspecialchars($sup['customer_name']) ?>
             <span class="badge badge-<?= $sup['balance'] >= 0 ? 'success' : 'danger' ?> ml-2">Bal: $ <?= number_format($sup['balance'], 2) ?></span>
-            
+            <?php if ($sup['credit_limit'] > 0): ?>
+                <small class="text-muted ml-2">Credit Limit: $ <?= number_format($sup['credit_limit'], 2) ?></small>
+            <?php endif; ?>
         </h6>
     </div>
     <div class="card-body">

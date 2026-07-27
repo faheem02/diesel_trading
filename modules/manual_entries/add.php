@@ -32,11 +32,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $max_sr = $conn->query("SELECT COALESCE(MAX(CAST(sr_no AS UNSIGNED)),0)+1 AS next_sr FROM manual_entries")->fetch_assoc();
 $next_sr = str_pad($max_sr['next_sr'], 4, '0', STR_PAD_LEFT);
 
+$existing_names = $conn->query("SELECT DISTINCT person_name FROM manual_entries ORDER BY person_name ASC");
+$name_list = [];
+while ($n = $existing_names->fetch_assoc()) {
+    $name_list[] = $n['person_name'];
+}
+
 include '../../includes/header.php';
 ?>
 
 <style>
-.form-urdu label { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Arial', sans-serif; }
+.form-urdu label { font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Arial, sans-serif'; }
+.ac-wrapper { position: relative; }
+.ac-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 9999; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #d1d3e2; border-top: none; border-radius: 0 0 .35rem .35rem; display: none; box-shadow: 0 4px 8px rgba(0,0,0,.15); }
+.ac-list .ac-item { padding: 8px 12px; cursor: pointer; font-size: 14px; }
+.ac-list .ac-item:hover, .ac-list .ac-item.active { background: #4e73df; color: #fff; }
 </style>
 
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -79,8 +89,11 @@ include '../../includes/header.php';
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">نام <span class="text-danger">*</span></label>
-                        <input type="text" name="person_name" class="form-control" required placeholder="نام درج کریں"
-                               value="<?= htmlspecialchars($_POST['person_name'] ?? '') ?>">
+                        <div class="ac-wrapper">
+                            <input type="text" name="person_name" id="person_name" class="form-control" required placeholder="نام درج کریں"
+                                   value="<?= htmlspecialchars($_POST['person_name'] ?? '') ?>" autocomplete="off">
+                            <div class="ac-list" id="namesDropdown"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-2">
@@ -129,16 +142,8 @@ include '../../includes/header.php';
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">زریعہ وصولی</label>
-                        <select name="payment_source" class="form-control">
-                            <option value="">-- منتخب کریں --</option>
-                            <?php $ps = $_POST['payment_source'] ?? ''; ?>
-                            <option value="نقد" <?= $ps === 'نقد' ? 'selected' : '' ?>>نقد</option>
-                            <option value="چیک" <?= $ps === 'چیک' ? 'selected' : '' ?>>چیک</option>
-                            <option value="ٹرانسفر" <?= $ps === 'ٹرانسفر' ? 'selected' : '' ?>>ٹرانسفر</option>
-                            <option value="آنلائن" <?= $ps === 'آنلائن' ? 'selected' : '' ?>>آنلائن</option>
-                            <option value="ایرٹیل" <?= $ps === 'ایرٹیل' ? 'selected' : '' ?>>ایرٹیل</option>
-                            <option value="اور" <?= $ps === 'اور' ? 'selected' : '' ?>>اور</option>
-                        </select>
+                        <input type="text" name="payment_source" class="form-control" placeholder="مثلاً نقد، چیک، ٹرانسفر..."
+                               value="<?= htmlspecialchars($_POST['payment_source'] ?? '') ?>">
                     </div>
                 </div>
             </div>
@@ -164,6 +169,56 @@ include '../../includes/header.php';
 </form>
 
 <script>
+var dbNames = <?= json_encode($name_list) ?>;
+var acInput = document.getElementById('person_name');
+var acDropdown = document.getElementById('namesDropdown');
+var acIndex = -1;
+
+acInput.addEventListener('input', function() {
+    var val = this.value.trim().toLowerCase();
+    acDropdown.innerHTML = '';
+    acIndex = -1;
+    if (val.length === 0) { acDropdown.style.display = 'none'; return; }
+    var matches = dbNames.filter(function(n) { return n.toLowerCase().indexOf(val) !== -1; });
+    if (matches.length === 0) { acDropdown.style.display = 'none'; return; }
+    matches.forEach(function(name, i) {
+        var div = document.createElement('div');
+        div.className = 'ac-item';
+        div.textContent = name;
+        div.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            acInput.value = name;
+            acDropdown.style.display = 'none';
+        });
+        acDropdown.appendChild(div);
+    });
+    acDropdown.style.display = 'block';
+});
+
+acInput.addEventListener('keydown', function(e) {
+    var items = acDropdown.querySelectorAll('.ac-item');
+    if (items.length === 0) return;
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        acIndex = Math.min(acIndex + 1, items.length - 1);
+        items.forEach(function(el, i) { el.classList.toggle('active', i === acIndex); });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        acIndex = Math.max(acIndex - 1, 0);
+        items.forEach(function(el, i) { el.classList.toggle('active', i === acIndex); });
+    } else if (e.key === 'Enter' && acIndex >= 0) {
+        e.preventDefault();
+        acInput.value = items[acIndex].textContent;
+        acDropdown.style.display = 'none';
+    } else if (e.key === 'Escape') {
+        acDropdown.style.display = 'none';
+    }
+});
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.ac-wrapper')) acDropdown.style.display = 'none';
+});
+
 document.getElementById('rate_per_ton').addEventListener('input', calcTotals);
 document.getElementById('quantity').addEventListener('input', calcTotals);
 

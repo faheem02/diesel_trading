@@ -9,12 +9,13 @@ if ($id <= 0) { header("Location: parties.php"); exit; }
 $party = $conn->query("SELECT * FROM personal_accounts WHERE id = $id")->fetch_assoc();
 if (!$party) { header("Location: parties.php"); exit; }
 
-$total_payable = $conn->query("SELECT COALESCE(SUM(credit), 0) AS total FROM personal_ledger WHERE account_id = $id AND reference_type = 'payable'")->fetch_assoc()['total'];
-$total_receivable = $conn->query("SELECT COALESCE(SUM(debit), 0) AS total FROM personal_ledger WHERE account_id = $id AND reference_type = 'receivable'")->fetch_assoc()['total'];
+$total_payable = $conn->query("SELECT COALESCE(SUM(debit), 0) AS total FROM personal_ledger WHERE account_id = $id AND reference_type = 'payable'")->fetch_assoc()['total'];
+$total_receivable = $conn->query("SELECT COALESCE(SUM(credit), 0) AS total FROM personal_ledger WHERE account_id = $id AND reference_type = 'receivable'")->fetch_assoc()['total'];
 $total_opening = $conn->query("SELECT COALESCE(SUM(credit), 0) AS total FROM personal_ledger WHERE account_id = $id AND reference_type = 'opening_balance'")->fetch_assoc()['total'];
 
 $from_date = $_GET['from_date'] ?? '';
 $to_date   = $_GET['to_date'] ?? '';
+$search    = trim($_GET['search'] ?? '');
 
 $sql = "SELECT * FROM personal_ledger WHERE account_id = ?";
 $params = [$id];
@@ -28,6 +29,11 @@ if (!empty($from_date)) {
 if (!empty($to_date)) {
     $sql .= " AND transaction_date <= ?";
     $params[] = $to_date;
+    $types .= "s";
+}
+if (!empty($search)) {
+    $sql .= " AND description LIKE ?";
+    $params[] = "%$search%";
     $types .= "s";
 }
 
@@ -93,6 +99,9 @@ if ($print_mode) {
             <?php if ($from_date || $to_date): ?>
                 &nbsp;|&nbsp; <span class="label">Period:</span> <?= htmlspecialchars($from_date ?: 'Start') ?> to <?= htmlspecialchars($to_date ?: 'Now') ?>
             <?php endif; ?>
+            <?php if ($search): ?>
+                &nbsp;|&nbsp; <span class="label">Search:</span> "<?= htmlspecialchars($search) ?>"
+            <?php endif; ?>
         </div>
         <table>
             <thead>
@@ -118,7 +127,12 @@ if ($print_mode) {
                 ?>
                 <tr class="<?= $e['reference_type'] === 'opening_balance' ? 'opening-row' : '' ?>">
                     <td><?= htmlspecialchars($e['transaction_date']) ?></td>
-                    <td><?= htmlspecialchars($e['description']) ?></td>
+                    <?php
+                        $pdesc = $e['description'];
+                        if (strpos($pdesc, 'Payable:') === 0) $pdesc = trim(substr($pdesc, 8));
+                        elseif (strpos($pdesc, 'Receivable:') === 0) $pdesc = trim(substr($pdesc, 11));
+                    ?>
+                    <td><?= htmlspecialchars($pdesc ?: '-') ?></td>
                     <td><small><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $e['reference_type']))) ?></small></td>
                     <td class="text-right"><?= $e['debit'] > 0 ? number_format($e['debit'], 2) : '-' ?></td>
                     <td class="text-right"><?= $e['credit'] > 0 ? number_format($e['credit'], 2) : '-' ?></td>
@@ -137,7 +151,7 @@ if ($print_mode) {
         </table>
         <div class="no-print" style="text-align:center;margin-top:20px;">
             <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
-            <a href="party_ledger.php?id=<?= $id ?>" class="btn-back">Back</a>
+            <a href="party_ledger.php?id=<?= $id ?><?= $from_date ? '&from_date='.urlencode($from_date) : '' ?><?= $to_date ? '&to_date='.urlencode($to_date) : '' ?><?= $search ? '&search='.urlencode($search) : '' ?>" class="btn-back">Back</a>
         </div>
     </div>
     <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
@@ -157,7 +171,7 @@ include '../../includes/header.php';
         <a href="add_receivable.php?party_id=<?= $id ?>" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm mr-1">
             <i class="fas fa-dollar-sign"></i> Add Receivable
         </a>
-        <button onclick="window.open('?id=<?= $id ?>&print=1', '_blank', 'width=1000,height=700')" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm mr-1">
+        <button onclick="printFiltered()" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm mr-1">
             <i class="fas fa-print"></i> Print
         </button>
         <a href="parties.php" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
@@ -185,7 +199,7 @@ include '../../includes/header.php';
         <div class="card border-left-warning shadow h-100 py-2">
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Paid by Younas</div>
+                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Cash Out</div>
                     <div class="h5 mb-0 font-weight-bold text-warning">$ <?= number_format($total_payable, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i></div>
@@ -196,7 +210,7 @@ include '../../includes/header.php';
         <div class="card border-left-success shadow h-100 py-2">
             <div class="card-body"><div class="row no-gutters align-items-center">
                 <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Received by Younas</div>
+                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Cash In</div>
                     <div class="h5 mb-0 font-weight-bold text-success">$ <?= number_format($total_receivable, 2) ?></div>
                 </div>
                 <div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300"></i></div>
@@ -249,6 +263,10 @@ include '../../includes/header.php';
         <form method="GET" class="form-inline flex-wrap">
             <input type="hidden" name="id" value="<?= $id ?>">
             <div class="form-group mr-3 mb-2">
+                <label class="small font-weight-bold mr-1">Search</label>
+                <input type="text" name="search" id="filterSearch" class="form-control form-control-sm" placeholder="Description..." value="<?= htmlspecialchars($search) ?>">
+            </div>
+            <div class="form-group mr-3 mb-2">
                 <label class="small font-weight-bold mr-1">From</label>
                 <input type="date" name="from_date" class="form-control form-control-sm" value="<?= htmlspecialchars($from_date) ?>">
             </div>
@@ -293,10 +311,10 @@ include '../../includes/header.php';
                             <td><?= htmlspecialchars($e['transaction_date']) ?></td>
                             <?php
                                 $desc = $e['description'];
-                                if (strpos($desc, 'Payable:') === 0) $desc = 'Paid by Younas';
-                                elseif (strpos($desc, 'Receivable:') === 0) $desc = 'Received by Younas';
+                                if (strpos($desc, 'Payable:') === 0) $desc = trim(substr($desc, 8));
+                                elseif (strpos($desc, 'Receivable:') === 0) $desc = trim(substr($desc, 11));
                             ?>
-                            <td class="<?= $is_opening ? 'font-weight-bold font-italic' : '' ?>"><?= htmlspecialchars($desc) ?></td>
+                            <td class="<?= $is_opening ? 'font-weight-bold font-italic' : '' ?>"><?= htmlspecialchars($desc ?: '-') ?></td>
                             <?php
                                 $type_label = ucfirst(str_replace('_', ' ', $e['reference_type']));
                                 $type_label = str_replace('Payable', 'Paid', $type_label);
@@ -315,3 +333,21 @@ include '../../includes/header.php';
 </div>
 
 <?php include '../../includes/footer.php'; ?>
+
+<script>
+function printFiltered() {
+    var params = new URLSearchParams();
+    params.set('id', '<?= $id ?>');
+    params.set('print', '1');
+
+    var fromVal = document.querySelector('input[name="from_date"]').value;
+    var toVal = document.querySelector('input[name="to_date"]').value;
+    var searchVal = document.querySelector('#filterSearch').value;
+
+    if (fromVal) params.set('from_date', fromVal);
+    if (toVal) params.set('to_date', toVal);
+    if (searchVal) params.set('search', searchVal);
+
+    window.open('party_ledger.php?' + params.toString(), '_blank', 'width=1000,height=700');
+}
+</script>

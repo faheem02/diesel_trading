@@ -61,26 +61,29 @@ if ($print_mode) {
             <thead><tr>
                 <th>SR نمبر</th><th>تاریخ</th><th>تفصیل</th>
                 <th>تعداد</th><th>فی دانہ</th>
-                <th>کل رقم</th><th>وصولی</th>
+                <th>کل رقم</th><th>وصولی</th><th>زریعہ وصولی</th>
                 <th>باقی</th>
             </tr></thead>
             <tbody>
                 <?php if (empty($rows)): ?>
-                    <tr><td colspan="8" style="color:#999;padding:20px;">کوئی اندراج نہیں ملا۔</td></tr>
+                    <tr><td colspan="9" style="color:#999;padding:20px;">کوئی اندراج نہیں ملا۔</td></tr>
                 <?php else:
                     $running_balance = 0;
+                    $print_sr = 0;
                     foreach ($rows as $row):
+                        $print_sr++;
                         $balance = $row['total_amount'] - $row['paid_amount'];
                         $running_balance += $balance;
                 ?>
                 <tr>
-                    <td><?= htmlspecialchars($row['sr_no']) ?></td>
+                    <td><?= $print_sr ?></td>
                     <td><?= htmlspecialchars($row['entry_date']) ?></td>
                     <td><?= htmlspecialchars($row['description'] ?? '-') ?></td>
                     <td><?= number_format($row['quantity'], 3) ?></td>
                     <td><?= number_format($row['rate_per_ton'], 2) ?></td>
                     <td><?= number_format($row['total_amount'], 2) ?></td>
                     <td style="color:#28a745"><?= number_format($row['paid_amount'], 2) ?></td>
+                    <td><?= htmlspecialchars($row['payment_source'] ?? '-') ?></td>
                     <td style="font-weight:bold;color:<?= $balance > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance, 2) ?></td>
                 </tr>
                 <?php endforeach; endif; ?>
@@ -91,6 +94,7 @@ if ($print_mode) {
                     <td></td>
                     <td><?= number_format($total_amount_sum, 2) ?></td>
                     <td><?= number_format($paid_amount_sum, 2) ?></td>
+                    <td></td>
                     <td style="color:<?= $balance_sum > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance_sum, 2) ?></td>
                 </tr>
                 <?php endif; ?>
@@ -174,26 +178,30 @@ include '../../includes/header.php';
                         <th class="text-right">فی دانہ</th>
                         <th class="text-right">کل رقم</th>
                         <th class="text-right">وصولی</th>
+                        <th>زریعہ وصولی</th>
                         <th class="text-right">باقی</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
-                        <tr><td colspan="8" class="text-center text-muted py-4">کوئی اندراج نہیں ملا۔</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4">کوئی اندراج نہیں ملا۔</td></tr>
                     <?php else:
                         $running_balance = 0;
+                        $screen_sr = 0;
                         foreach ($rows as $row):
+                            $screen_sr++;
                             $balance = $row['total_amount'] - $row['paid_amount'];
                             $running_balance += $balance;
                     ?>
                         <tr>
-                            <td class="font-weight-bold"><?= htmlspecialchars($row['sr_no']) ?></td>
+                            <td class="font-weight-bold"><?= $screen_sr ?></td>
                             <td><?= htmlspecialchars($row['entry_date']) ?></td>
                             <td><?= htmlspecialchars($row['description'] ?? '-') ?></td>
                             <td class="text-right font-weight-bold"><?= number_format($row['quantity'], 3) ?></td>
                             <td class="text-right"><?= number_format($row['rate_per_ton'], 2) ?></td>
                             <td class="text-right"><?= number_format($row['total_amount'], 2) ?></td>
                             <td class="text-right font-weight-bold" style="color:#28a745"><?= number_format($row['paid_amount'], 2) ?></td>
+                            <td><?= htmlspecialchars($row['payment_source'] ?? '-') ?></td>
                             <td class="text-right font-weight-bold" style="color:<?= $balance > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance, 2) ?></td>
                         </tr>
                     <?php endforeach; endif; ?>
@@ -206,6 +214,7 @@ include '../../includes/header.php';
                         <td class="text-right"></td>
                         <td class="text-right"><?= number_format($total_amount_sum, 2) ?></td>
                         <td class="text-right" style="color:#28a745"><?= number_format($paid_amount_sum, 2) ?></td>
+                        <td></td>
                         <td class="text-right" style="color:<?= $balance_sum > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance_sum, 2) ?></td>
                     </tr>
                 </tfoot>

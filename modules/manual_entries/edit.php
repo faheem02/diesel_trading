@@ -25,7 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description    = trim($_POST['description'] ?? '');
     $quantity       = floatval($_POST['quantity'] ?? 0);
     $rate_per_ton   = floatval($_POST['rate_per_ton'] ?? 0);
-    $total_amount   = $rate_per_ton * $quantity;
+    $total_amount   = floatval($_POST['total_amount'] ?? 0);
+    if ($total_amount <= 0) {
+        $total_amount = $rate_per_ton * $quantity;
+    }
     $paid_amount    = floatval($_POST['paid_amount'] ?? 0);
     $payment_source = trim($_POST['payment_source'] ?? '');
 
@@ -139,7 +142,8 @@ include '../../includes/header.php';
                 <div class="col-md-2">
                     <div class="form-group">
                         <label class="small font-weight-bold">کل رقم</label>
-                        <input type="text" id="total_amount" class="form-control bg-light" readonly value="0.00">
+                        <input type="number" step="0.01" min="0" name="total_amount" id="total_amount" class="form-control"
+                               value="<?= htmlspecialchars($_POST['total_amount'] ?? $row['total_amount']) ?>">
                     </div>
                 </div>
                 <div class="col-md-2">
@@ -233,13 +237,21 @@ document.getElementById('rate_per_ton').addEventListener('input', calcTotals);
 document.getElementById('quantity').addEventListener('input', calcTotals);
 
 function calcTotals() {
-    const rate = parseFloat(document.getElementById('rate_per_ton').value) || 0;
-    const qty  = parseFloat(document.getElementById('quantity').value) || 0;
-    const total = rate * qty;
-    document.getElementById('total_amount').value = total.toFixed(2);
+    const totalInput = document.getElementById('total_amount');
+    if (totalInput.dataset.manual !== '1') {
+        const rate = parseFloat(document.getElementById('rate_per_ton').value) || 0;
+        const qty  = parseFloat(document.getElementById('quantity').value) || 0;
+        totalInput.value = (rate * qty).toFixed(2);
+    }
+    const total = parseFloat(totalInput.value) || 0;
     const paid = parseFloat(document.querySelector('[name="paid_amount"]').value) || 0;
     document.getElementById('balance_display').value = (total - paid).toFixed(2);
 }
+
+document.getElementById('total_amount').addEventListener('input', function() {
+    this.dataset.manual = '1';
+    calcTotals();
+});
 
 document.querySelector('[name="paid_amount"]').addEventListener('input', calcTotals);
 

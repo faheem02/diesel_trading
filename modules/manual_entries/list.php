@@ -40,7 +40,8 @@ $sql = "SELECT person_name,
                MAX(entry_date) AS last_date,
                SUM(quantity) AS quantity,
                SUM(total_amount) AS total_amount,
-               SUM(paid_amount) AS paid_amount
+               SUM(paid_amount) AS paid_amount,
+               GROUP_CONCAT(DISTINCT payment_source SEPARATOR '، ') AS payment_sources
         FROM manual_entries WHERE 1=1";
 $params = [];
 $types = "";
@@ -127,15 +128,16 @@ if ($print_mode) {
         <table>
             <thead><tr>
                 <th>#</th><th>نام</th><th>تعداد اندراجات</th><th>تاریخ</th>
-                <th>تعداد</th><th>کل رقم</th><th>وصولی</th><th>باقی</th>
+                <th>تعداد</th><th>کل رقم</th><th>وصولی</th><th>زریعہ وصولی</th><th>باقی</th>
             </tr></thead>
             <tbody>
                 <?php if (empty($rows)): ?>
-                    <tr><td colspan="8" style="color:#999;padding:20px;">کوئی اندراج نہیں ملا۔</td></tr>
+                    <tr><td colspan="9" style="color:#999;padding:20px;">کوئی اندراج نہیں ملا۔</td></tr>
                 <?php else:
                     $i = 1;
                     foreach ($rows as $row):
                         $balance = $row['total_amount'] - $row['paid_amount'];
+                        $payment_sources = array_filter(array_map('trim', array_filter(explode('،', $row['payment_sources'] ?? ''))));
                         $date_range = $row['first_date'] == $row['last_date']
                             ? htmlspecialchars($row['first_date'])
                             : htmlspecialchars($row['first_date']) . ' - ' . htmlspecialchars($row['last_date']);
@@ -148,6 +150,7 @@ if ($print_mode) {
                     <td><?= number_format($row['quantity'], 3) ?></td>
                     <td><?= number_format($row['total_amount'], 2) ?></td>
                     <td style="color:#28a745"><?= number_format($row['paid_amount'], 2) ?></td>
+                    <td><small><?= !empty($payment_sources) ? htmlspecialchars(implode('، ', $payment_sources)) : '<span style="color:#999">—</span>' ?></small></td>
                     <td style="font-weight:bold;color:<?= $balance > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance, 2) ?></td>
                 </tr>
                 <?php endforeach; endif; ?>
@@ -159,6 +162,7 @@ if ($print_mode) {
                     <td><?= number_format(array_sum(array_column($rows, 'quantity')), 3) ?></td>
                     <td><?= number_format($total_amount_sum, 2) ?></td>
                     <td><?= number_format($paid_amount_sum, 2) ?></td>
+                    <td></td>
                     <td style="color:<?= $balance_sum > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance_sum, 2) ?></td>
                 </tr>
                 <?php endif; ?>
@@ -238,17 +242,19 @@ include '../../includes/header.php';
                         <th class="text-right">تعداد</th>
                         <th class="text-right">کل رقم</th>
                         <th class="text-right">وصولی</th>
+                        <th>زریعہ وصولی</th>
                         <th class="text-right">باقی</th>
                         <th class="text-center">عمل</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
-                        <tr><td colspan="9" class="text-center text-muted py-4">کوئی اندراج نہیں ملا۔</td></tr>
+                        <tr><td colspan="10" class="text-center text-muted py-4">کوئی اندراج نہیں ملا۔</td></tr>
                     <?php else:
                         $i = 1;
                         foreach ($rows as $row):
                             $balance = $row['total_amount'] - $row['paid_amount'];
+                            $payment_sources = array_filter(array_map('trim', array_filter(explode('،', $row['payment_sources'] ?? ''))));
                             $date_range = $row['first_date'] == $row['last_date']
                                 ? htmlspecialchars($row['first_date'])
                                 : htmlspecialchars($row['first_date']) . ' - ' . htmlspecialchars($row['last_date']);
@@ -261,8 +267,12 @@ include '../../includes/header.php';
                             <td class="text-right font-weight-bold"><?= number_format($row['quantity'], 3) ?></td>
                             <td class="text-right"><?= number_format($row['total_amount'], 2) ?></td>
                             <td class="text-right font-weight-bold" style="color:#28a745"><?= number_format($row['paid_amount'], 2) ?></td>
+                            <td><small><?= !empty($payment_sources) ? htmlspecialchars(implode('، ', $payment_sources)) : '<span class="text-muted">—</span>' ?></small></td>
                             <td class="text-right font-weight-bold" style="color:<?= $balance > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance, 2) ?></td>
                             <td class="text-center" style="white-space:nowrap">
+                                <a href="view.php?person=<?= urlencode($row['person_name']) ?>" class="btn btn-sm btn-outline-success" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </a>
                                 <a href="ledger.php?person=<?= urlencode($row['person_name']) ?>" class="btn btn-sm btn-info" title="ledger"><i class="fas fa-book"></i></a>
                                 <a href="list.php?delete_person=<?= urlencode($row['person_name']) ?>&from_date=<?= urlencode($from_date) ?>&to_date=<?= urlencode($to_date) ?>&search=<?= urlencode($search) ?>" class="btn btn-sm btn-danger ml-1" onclick="return confirm('کیا آپ واقعی اس شخص کے تمام اندراجات حذف کرنا چاہتے ہیں?');" title="حذف"><i class="fas fa-trash"></i></a>
                             </td>
@@ -278,6 +288,7 @@ include '../../includes/header.php';
                         <td class="text-right"><?= number_format(array_sum(array_column($rows, 'quantity')), 3) ?></td>
                         <td class="text-right"><?= number_format($total_amount_sum, 2) ?></td>
                         <td class="text-right" style="color:#28a745"><?= number_format($paid_amount_sum, 2) ?></td>
+                        <td></td>
                         <td class="text-right" style="color:<?= $balance_sum > 0 ? '#dc3545' : '#28a745' ?>"><?= number_format($balance_sum, 2) ?></td>
                         <td></td>
                     </tr>

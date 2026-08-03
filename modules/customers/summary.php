@@ -55,95 +55,84 @@ if ($print_mode) {
     $logo = $base_url . "modules/logo/WhatsApp%20Image%202026-07-04%20at%201.20.58%20PM.jpeg";
     ?>
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="en" dir="ltr">
     <head>
     <meta charset="UTF-8">
     <title>Summary - <?= htmlspecialchars($customer['customer_name']) ?></title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; padding: 30px; color: #333; }
-        .print-wrapper { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 40px 45px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        .print-header { display: flex; align-items: center; gap: 20px; border-bottom: 3px solid #2C3E50; padding-bottom: 15px; margin-bottom: 20px; }
-        .print-header .logo { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 3px solid #F39C12; flex-shrink: 0; }
+        .print-wrapper { max-width: 400px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 30px 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .print-header { text-align: center; border-bottom: 3px solid #2C3E50; padding-bottom: 12px; margin-bottom: 15px; }
+        .print-header .logo { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 3px solid #F39C12; margin: 0 auto 8px; }
         .print-header .logo img { width: 100%; height: 100%; object-fit: cover; }
-        .print-header .brand .company { font-size: 24px; font-weight: 900; color: #2C3E50; line-height: 1.2; }
-        .print-header .brand .sub { font-size: 12px; color: #F39C12; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
-        .print-header .brand .contact { font-size: 13px; color: #555; margin-top: 5px; }
-        h2 { font-size: 22px; color: #2C3E50; font-weight: 700; margin-bottom: 5px; }
-        .subtitle { font-size: 13px; color: #888; margin-bottom: 10px; }
-        .party-line { font-size: 14px; color: #333; margin-bottom: 20px; padding: 8px 12px; background: #f8f9fc; border-radius: 6px; border-left: 4px solid #2C3E50; }
-        .party-line .label { font-weight: 700; color: #555; }
-        table.summary-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        table.summary-table th { background: #2C3E50; color: #fff; padding: 10px 14px; font-size: 12px; text-transform: uppercase; text-align: left; }
-        table.summary-table th.text-right { text-align: right; }
-        table.summary-table td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #eee; }
-        table.summary-table td.text-right { text-align: right; font-weight: 600; }
-        table.summary-table tfoot td { padding: 10px 14px; font-size: 14px; font-weight: 700; border-top: 2px solid #2C3E50; background: #f8f9fc; }
-        table.summary-table tfoot td.text-right { text-align: right; }
-        .text-success { color: #155724; }
-        .text-danger { color: #721c24; }
-        .btn-print { display: inline-block; padding: 12px 40px; background: #2C3E50; color: #fff; border: none; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 20px; }
-        .btn-back { display: inline-block; padding: 12px 30px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; margin-left: 10px; }
-        @page { margin: 15mm; }
-        @media print { body { background: #fff; padding: 0; } .print-wrapper { box-shadow: none; border-radius: 0; padding: 20px 30px; } .no-print { display: none; } table.summary-table th { background: #2C3E50 !important; color: #fff !important; } table.summary-table tfoot td { background: #f8f9fc !important; } .party-line { background: #f8f9fc !important; } }
+        .print-header .company { font-size: 20px; font-weight: 900; color: #2C3E50; }
+        .print-header .sub { font-size: 11px; color: #F39C12; font-weight: 700; letter-spacing: 2px; margin-top: 2px; }
+        .party-name { font-size: 16px; font-weight: 700; color: #2C3E50; text-align: center; margin: 10px 0 15px; padding: 8px; background: #f8f9fc; border-radius: 6px; }
+        .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 15px; }
+        .summary-row .label { font-weight: 600; color: #555; }
+        .summary-row .value { font-weight: 700; font-size: 16px; }
+        .summary-row .value.green { color: #28a745; }
+        .summary-row .value.red { color: #dc3545; }
+        .summary-row.total { border-bottom: none; border-top: 2px solid #2C3E50; margin-top: 5px; padding-top: 12px; }
+        .summary-row.total .label { font-size: 16px; font-weight: 700; color: #2C3E50; }
+        .summary-row.total .value { font-size: 18px; }
+        .date-line { text-align: center; font-size: 11px; color: #999; margin-top: 15px; }
+        .btn-print { display: inline-block; padding: 10px 30px; background: #2C3E50; color: #fff; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 15px; }
+        .btn-print:hover { background: #1A252F; }
+        .btn-back { display: inline-block; padding: 10px 25px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; margin-left: 8px; }
+        .no-print { text-align: center; }
+        @media print {
+            @page { size: 72mm 150mm; margin: 0; }
+            html, body { direction: ltr; width: 72mm; height: 150mm; margin: 0; padding: 0; background: #fff; overflow: hidden; }
+            body { padding: 3mm 2mm; }
+            .print-wrapper { max-width: 68mm; width: 68mm; margin: 0; padding: 0; background: #fff; box-shadow: none; border-radius: 0; }
+            .no-print { display: none !important; }
+            .print-header { border-bottom: 2px solid #2C3E50 !important; padding-bottom: 3mm; margin-bottom: 3mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-header .logo { width: 12mm; height: 12mm; border-width: 1.5px; }
+            .print-header .company { font-size: 11pt; }
+            .print-header .sub { font-size: 7pt; letter-spacing: 1px; }
+            .party-name { font-size: 10pt; padding: 2mm; margin: 2mm 0 3mm; }
+            .summary-row { padding: 2.5mm 1mm; font-size: 9pt; border-bottom-width: 0.5px; }
+            .summary-row .label { font-size: 9pt; }
+            .summary-row .value { font-size: 10pt; }
+            .summary-row.total .label { font-size: 10pt; }
+            .summary-row.total .value { font-size: 11pt; }
+            .date-line { font-size: 7pt; margin-top: 3mm; }
+        }
     </style>
     </head>
     <body>
     <div class="print-wrapper">
         <div class="print-header">
             <div class="logo"><img src="<?= $logo ?>" alt="Logo"></div>
-            <div class="brand">
-                <div class="company">Muhammad Younas</div>
-                <div class="sub">Diesel Management System</div>
-                <div class="contact"><i>&#9742;</i> +93 70 260 7159</div>
-            </div>
-        </div>
-        <h2>Customer Summary Report</h2>
-        <div class="subtitle">Generated: <?= date('d M Y h:i A') ?>
-            <?php if ($from_date || $to_date): ?>
-                &nbsp;|&nbsp; Period: <?= htmlspecialchars($from_date ?: 'Start') ?> to <?= htmlspecialchars($to_date ?: 'Now') ?>
-            <?php endif; ?>
+            <div class="company">Muhammad Younas</div>
+            <div class="sub">DIESEL MANAGEMENT</div>
         </div>
 
-        <div class="party-line">
-            <span class="label">Customer:</span> <?= htmlspecialchars($customer['customer_name']) ?>
-            &nbsp;&nbsp;|&nbsp;&nbsp;
-            <span class="label">Mobile:</span> <?= htmlspecialchars($customer['mobile'] ?: '-') ?>
-            &nbsp;&nbsp;|&nbsp;&nbsp;
-            <span class="label">Address:</span> <?= htmlspecialchars($customer['address'] ?: '-') ?>
+        <div class="party-name"><?= htmlspecialchars($customer['customer_name']) ?></div>
+
+        <div class="summary-row">
+            <span class="label">Opening Balance</span>
+            <span class="value"><?= number_format($total_opening, 2) ?></span>
+        </div>
+        <div class="summary-row">
+            <span class="label">Total Sales</span>
+            <span class="value red"><?= number_format($total_sales_debit, 2) ?></span>
+        </div>
+        <div class="summary-row">
+            <span class="label">Total Payments</span>
+            <span class="value green"><?= number_format($total_payments_credit, 2) ?></span>
+        </div>
+        <div class="summary-row total">
+            <span class="label">Balance</span>
+            <span class="value <?= $current_bal > 0 ? 'red' : 'green' ?>"><?= number_format($current_bal, 2) ?></span>
         </div>
 
-        <table class="summary-table">
-            <thead>
-                <tr>
-                    <th>Description</th>
-                    <th class="text-right">Amount ($)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Opening Balance</td>
-                    <td class="text-right"><?= number_format($total_opening, 2) ?></td>
-                </tr>
-                <tr>
-                    <td>Total Sales (Debit)</td>
-                    <td class="text-right text-danger"><?= number_format($total_sales_debit, 2) ?></td>
-                </tr>
-                <tr>
-                    <td>Total Payments Received (Credit)</td>
-                    <td class="text-right text-success"><?= number_format($total_payments_credit, 2) ?></td>
-                </tr>
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td style="text-align:right;font-weight:700;">Current Balance</td>
-                    <td class="text-right" style="font-size:16px;"><?= number_format($current_bal, 2) ?></td>
-                </tr>
-            </tfoot>
-        </table>
+        <div class="date-line"><?= date('d M Y h:i A') ?></div>
 
-        <div class="no-print" style="text-align:center;margin-top:20px;">
-            <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+        <div class="no-print">
+            <button class="btn-print" onclick="window.print()">Print</button>
             <button class="btn-back" onclick="window.close()">Close</button>
         </div>
     </div>
@@ -158,8 +147,8 @@ include '../../includes/header.php';
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-chart-bar mr-1"></i> Summary — <?= htmlspecialchars($customer['customer_name']) ?></h1>
     <div>
-        <button onclick="window.open('?id=<?= $id ?>&from_date=<?= urlencode($from_date) ?>&to_date=<?= urlencode($to_date) ?>&print=1', '_blank', 'width=1000,height=700')" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm mr-1">
-            <i class="fas fa-print"></i> Print
+        <button onclick="window.open('?id=<?= $id ?>&from_date=<?= urlencode($from_date) ?>&to_date=<?= urlencode($to_date) ?>&print=1', '_blank', 'width=500,height=500')" class="d-none d-sm-inline-block btn btn-sm btn-dark shadow-sm mr-1">
+            <i class="fas fa-print"></i> ٹھرمل پرنٹ
         </button>
         <a href="ledger.php?id=<?= $id ?>" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm mr-1">
             <i class="fas fa-book"></i> Ledger
@@ -219,3 +208,19 @@ include '../../includes/header.php';
 </div>
 
 <?php include '../../includes/footer.php'; ?>
+
+<style>
+@media print {
+    @page { size: 72mm 150mm; margin: 0; }
+    html, body { width: 72mm; height: 150mm; margin: 0; padding: 0; background: #fff; overflow: hidden; }
+    body { padding: 3mm 2mm; }
+    #wrapper, #wrapper > * { display: none !important; }
+    .card { box-shadow: none !important; border: none !important; max-width: 68mm !important; width: 68mm !important; margin: 0 !important; padding: 2mm !important; }
+    .card-header { background: #2C3E50 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 3mm !important; }
+    .card-header h6 { color: #fff !important; font-size: 11px !important; }
+    .card-body { padding: 2mm !important; }
+    .card-body table { font-size: 11px !important; }
+    .card-body table td { padding: 3mm 2mm !important; }
+    .d-sm-flex { display: none !important; }
+}
+</style>
